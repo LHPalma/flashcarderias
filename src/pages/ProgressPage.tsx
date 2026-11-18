@@ -2,11 +2,13 @@ import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Page } from '../components/Page';
 import { Seg } from '../components/Seg';
+import { Box, HINT, Label, Panel } from '../components/ui';
 import { db } from '../db';
 import { useSettings } from '../hooks';
 import { MONTHS, WEEKDAYS, bestStreak, buildHeatmap, currentStreak, dayKey, tally } from '../stats';
 
-const LEGEND = ['', 'l1', 'l2', 'l3', 'l4'];
+// Intensidade de cada dia (classes completas para o Tailwind encontrar).
+const LEVEL = ['bg-pt/[.12]', 'bg-pt/[.32]', 'bg-pt/[.55]', 'bg-pt/[.78]', 'bg-pt'];
 
 export function ProgressPage() {
   const [settings] = useSettings();
@@ -67,46 +69,56 @@ export function ProgressPage() {
 
   return (
     <Page title="Progresso" eyebrow="FLASHCARDS // LOG" backTo="/">
-      <section className="panel streak">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span className="label">Sequência</span>
-          <Seg value={stats.streak} size="big" />
-          <span className="label">Dias seguidos</span>
+      <Panel className="flex-row items-stretch gap-4">
+        <div className="flex flex-col gap-0.5">
+          <Label tone="panel">Sequência</Label>
+          <Seg value={stats.streak} size="big" onPanel />
+          <Label tone="panel">Dias seguidos</Label>
         </div>
-        <div className="side">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span className="label">Meta de hoje · {doneToday}/{goal}</span>
-            <div className="goalbar" role="img" aria-label={`${doneToday} de ${goal} revisões hoje`}>
-              {Array.from({ length: 10 }, (_, i) => <span key={i} className={i < goalLit ? 'on' : ''} />)}
+        <div className="flex min-w-0 flex-1 flex-col justify-between gap-2">
+          <div className="flex flex-col gap-1">
+            <Label tone="panel">Meta de hoje · {doneToday}/{goal}</Label>
+            <div className="flex gap-[3px]" role="img" aria-label={`${doneToday} de ${goal} revisões hoje`}>
+              {Array.from({ length: 10 }, (_, i) => <span key={i} className={`h-3 flex-1 ${i < goalLit ? 'bg-pt' : 'bg-pt/20'}`} />)}
             </div>
           </div>
-          <div className="deck-head label">
-            <span>Recorde</span><span style={{ color: 'var(--pt)' }}>{stats.best} D</span>
+          <div className="flex items-baseline justify-between gap-2">
+            <Label tone="panel">Recorde</Label>
+            <span className="text-[11px] uppercase tracking-[0.16em] text-pt">{stats.best} D</span>
           </div>
         </div>
-      </section>
+      </Panel>
 
-      <section className="panel">
-        <div className="deck-head">
-          <h2 className="label" style={{ margin: 0 }}>Últimas 22 semanas</h2>
-          <span style={{ fontSize: 12, letterSpacing: '.08em' }}>{String(stats.activeDays).padStart(3, '0')} DIAS ATIVOS</span>
+      <Panel>
+        <div className="flex items-baseline justify-between gap-2">
+          <Label as="h2" tone="panel">Últimas 22 semanas</Label>
+          <span className="text-[12px] tracking-[0.08em]">{String(stats.activeDays).padStart(3, '0')} DIAS ATIVOS</span>
         </div>
 
-        <div className="heat">
-          <div className="heat-months" aria-hidden="true">
-            {months.map((m, i) => <span key={i}>{m}</span>)}
+        {/* --cell: o tamanho do quadrado encolhe em telas estreitas (22 colunas + rótulos + margens) */}
+        <div className="flex flex-col gap-1 overflow-x-auto p-0.5 [--cell:clamp(8px,calc((100vw_-_157px)/22),12px)]">
+          <div className="grid h-3 grid-cols-[repeat(22,var(--cell))] gap-[3px] pl-[30px] text-[10px] leading-3 tracking-[0.04em] text-pm" aria-hidden="true">
+            {months.map((m, i) => <span key={i} className="overflow-visible whitespace-nowrap">{m}</span>)}
           </div>
-          <div className="heat-body">
-            <div className="heat-days" aria-hidden="true">
+          <div className="flex gap-1.5">
+            <div className="grid w-6 flex-none grid-rows-[repeat(7,var(--cell))] gap-[3px] text-[9px] leading-[var(--cell)] text-pm" aria-hidden="true">
               {WEEKDAYS.map((w, i) => <span key={w}>{i % 2 === 1 ? w : ''}</span>)}
             </div>
-            <div className="heat-grid" role="group" aria-label="Mapa de estudo: um quadrado por dia. Use as setas para navegar." ref={gridRef} onKeyDown={onKeyDown}>
+            <div
+              className="grid auto-cols-[var(--cell)] grid-flow-col grid-rows-[repeat(7,var(--cell))] gap-[3px]"
+              role="group"
+              aria-label="Mapa de estudo: um quadrado por dia. Use as setas para navegar."
+              ref={gridRef}
+              onKeyDown={onKeyDown}
+            >
               {flat.map((c) => (
                 <button
                   key={c.key}
                   type="button"
                   data-key={c.key}
-                  className={`heat-cell ${LEGEND[c.level]}${c.future ? ' future' : ''}${c.key === todayKey ? ' today' : ''}`}
+                  className={`size-[var(--cell)] rounded-none border-0 p-0 ${
+                    c.future ? 'pointer-events-none bg-transparent' : LEVEL[c.level]
+                  } ${c.key === todayKey ? 'outline-2 outline-offset-1 outline-pt' : ''} aria-pressed:shadow-[0_0_0_4px_color-mix(in_srgb,var(--pt)_25%,transparent)] aria-pressed:outline-2 aria-pressed:outline-offset-1 aria-pressed:outline-pt`}
                   aria-pressed={c.key === sel.key}
                   aria-label={`${c.date.getDate()} de ${MONTHS[c.date.getMonth()]}: ${c.n} fichas`}
                   tabIndex={c.key === sel.key ? 0 : -1}
@@ -118,27 +130,27 @@ export function ProgressPage() {
           </div>
         </div>
 
-        <div className="deck-head label">
-          <span>Toque num dia</span>
-          <span className="legend" aria-hidden="true">
+        <div className="flex items-baseline justify-between gap-2">
+          <Label tone="panel">Toque num dia</Label>
+          <span className="flex items-center gap-1 text-[11px] uppercase tracking-[0.16em] text-pm" aria-hidden="true">
             menos
-            {LEGEND.map((l) => <i key={l} className={'heat-cell ' + l} style={{ width: 10, height: 10 }} />)}
+            {LEVEL.map((l) => <i key={l} className={`block size-2.5 ${l}`} />)}
             mais
           </span>
         </div>
 
-        <div className="readout" role="status" aria-live="polite">
+        <div className="flex flex-wrap justify-between gap-2 border-t-2 border-pt/25 pt-2.5 text-[14px] tracking-[0.06em]" role="status" aria-live="polite">
           <span>{readout}</span>
           <span>{sel.n} FICHAS</span>
           <span>{sel.n ? `${Math.round((sel.ok / sel.n) * 100)}% ACERTO` : 'SEM ESTUDO'}</span>
         </div>
-      </section>
+      </Panel>
 
-      <div className="tiles">
-        <div className="box"><span className="label">Taxa de acerto</span><Seg value={accuracy} digits={3} size="mid" /><span className="hint">por cento</span></div>
-        <div className="box"><span className="label">Revisões</span><Seg value={stats.total} digits={4} size="mid" /><span className="hint">no total</span></div>
-        <div className="box"><span className="label">Melhor dia</span><Seg value={stats.bestDay} digits={3} size="mid" /><span className="hint">fichas em um dia</span></div>
-        <div className="box"><span className="label">Dominadas</span><Seg value={mastered ?? 0} digits={3} size="mid" /><span className="hint">intervalo de 21 d ou mais</span></div>
+      <div className="grid grid-cols-2 gap-2.5">
+        <Box><Label>Taxa de acerto</Label><Seg value={accuracy} digits={3} size="mid" /><span className={HINT}>por cento</span></Box>
+        <Box><Label>Revisões</Label><Seg value={stats.total} digits={4} size="mid" /><span className={HINT}>no total</span></Box>
+        <Box><Label>Melhor dia</Label><Seg value={stats.bestDay} digits={3} size="mid" /><span className={HINT}>fichas em um dia</span></Box>
+        <Box><Label>Dominadas</Label><Seg value={mastered ?? 0} digits={3} size="mid" /><span className={HINT}>intervalo de 21 d ou mais</span></Box>
       </div>
     </Page>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Modal } from './Modal';
+import { DIALOG_BODY, DIALOG_TITLE, Modal } from './Modal';
+import { FIELD_INPUT, FIELD_LABEL, HINT, keyCls } from './ui';
 import { db, type Card } from '../db';
 import { newSrsFields } from '../srs';
 
@@ -42,25 +43,30 @@ export function CardEditor({ open, deckId, card, onClose }: Props) {
 
   return (
     <Modal open={open} onClose={onClose}>
-      <form className="dlg" onSubmit={(e) => { e.preventDefault(); void save(); }}>
-        <h2>{card ? 'Editar ficha' : 'Nova ficha'}</h2>
-        <div className="field">
-          <label htmlFor="cf">Frente</label>
-          <textarea id="cf" value={front} onChange={(e) => setFront(e.target.value)} autoFocus />
+      <form className={DIALOG_BODY} onSubmit={(e) => { e.preventDefault(); void save(); }}>
+        <h2 className={DIALOG_TITLE}>{card ? 'Editar ficha' : 'Nova ficha'}</h2>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="cf" className={FIELD_LABEL}>Frente</label>
+          <textarea id="cf" className={`${FIELD_INPUT} min-h-24`} value={front} onChange={(e) => setFront(e.target.value)} autoFocus />
         </div>
-        <div className="field">
-          <label htmlFor="cb">Verso</label>
-          <textarea id="cb" style={{ minHeight: 130 }} value={back} onChange={(e) => setBack(e.target.value)} />
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="cb" className={FIELD_LABEL}>Verso</label>
+          <textarea id="cb" className={`${FIELD_INPUT} min-h-[130px]`} value={back} onChange={(e) => setBack(e.target.value)} />
         </div>
-        <div className="field">
-          <label htmlFor="ct">Tags</label>
-          <input id="ct" className="mono" value={tags} onChange={(e) => setTags(e.target.value)} />
-          <p className="hint">Separe as tags por espaço.</p>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="ct" className={FIELD_LABEL}>Tags</label>
+          <input
+            id="ct"
+            className="min-h-12 w-full rounded-[10px] border-0 bg-panel px-3 py-2.5 font-mono text-[17px] leading-[normal] tracking-[0.04em] text-pt"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+          />
+          <p className={HINT}>Separe as tags por espaço.</p>
         </div>
-        <div className="row nowrap">
-          {card && <button type="button" className="key outline" onClick={() => void remove()}>Excluir</button>}
-          <button type="button" className="key outline flex1" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="key flex1" disabled={!valid}>Salvar ▮</button>
+        <div className="flex gap-2">
+          {card && <button type="button" className={keyCls('outline')} onClick={() => void remove()}>Excluir</button>}
+          <button type="button" className={keyCls('outline', 'flex-1')} onClick={onClose}>Cancelar</button>
+          <button type="submit" className={keyCls('solid', 'flex-1')} disabled={!valid}>Salvar ▮</button>
         </div>
       </form>
     </Modal>

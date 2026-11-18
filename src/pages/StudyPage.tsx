@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Page } from '../components/Page';
 import { Icon } from '../components/Icon';
+import { ICON_KEY, Label, Panel, keyCls } from '../components/ui';
 import { buildQueue, db, gradeCard, type Card } from '../db';
 import { GRADES, GRADE_LABEL, MIN, previewLabels, type Grade } from '../srs';
 
@@ -15,7 +16,16 @@ interface Session {
   missed: number[];
 }
 
-const LEVELS: Record<Grade, number> = { 1: 1, 2: 2, 3: 3, 4: 4 };
+// Classes completas (o Tailwind só gera o que aparece escrito por inteiro no código).
+const GRADE_STYLE: Record<Grade, { key: string; on: string; off: string; text: string }> = {
+  1: { key: 'border-g1 bg-g1-bg text-g1', on: 'bg-g1', off: 'bg-g1/25', text: 'text-g1' },
+  2: { key: 'border-g2 bg-g2-bg text-g2', on: 'bg-g2', off: 'bg-g2/25', text: 'text-g2' },
+  3: { key: 'border-g3 bg-g3-bg text-g3', on: 'bg-g3', off: 'bg-g3/25', text: 'text-g3' },
+  4: { key: 'border-g4 bg-g4-bg text-g4', on: 'bg-g4', off: 'bg-g4/25', text: 'text-g4' },
+};
+
+const CARD_BASE = 'flex min-h-[260px] w-full max-h-[470px] flex-1 flex-col justify-between gap-3.5 rounded-2xl p-5 text-left';
+const CARD_TEXT = 'font-lcd uppercase leading-[1.02] break-words whitespace-pre-wrap text-balance';
 
 export function StudyPage() {
   const param = useParams().id;
@@ -86,16 +96,16 @@ export function StudyPage() {
   const title = deckId === undefined ? 'TODOS OS DECKS' : deck?.name ?? '…';
   const back = deckId === undefined ? '/' : `/deck/${deckId}`;
   const leave = (
-    <Link className="iconkey" to={back} aria-label="Sair do estudo"><Icon name="close" /></Link>
+    <Link className={ICON_KEY} to={back} aria-label="Sair do estudo"><Icon name="close" /></Link>
   );
 
-  if (!session) return <Shell title={title} leave={leave}><p className="empty">CARREGANDO…</p></Shell>;
+  if (!session) return <Shell title={title} leave={leave}><p className="py-6 text-center uppercase text-muted">Carregando…</p></Shell>;
 
   if (session.total === 0) {
     return (
       <Shell title={title} leave={leave}>
-        <p className="empty">NADA PARA ESTUDAR AGORA ■</p>
-        <Link className="key bar" to="/">Voltar aos decks</Link>
+        <p className="py-6 text-center uppercase text-muted">Nada para estudar agora ■</p>
+        <Link className={keyCls('bar')} to="/">Voltar aos decks</Link>
       </Shell>
     );
   }
@@ -106,26 +116,31 @@ export function StudyPage() {
     const pct = sum ? Math.round(((t[3] + t[4]) / sum) * 100) : 0;
     return (
       <Shell title={title} leave={leave}>
-        <section className="panel" style={{ gap: 14 }}>
-          <span className="label">Sessão concluída</span>
-          <div><span className="seg big"><span className="ghost" aria-hidden="true">888</span><span className="val">{String(pct).padStart(3, '0')}</span></span></div>
-          <span className="label">% de acerto em {sum} revisões</span>
-          <div className="row">
+        <Panel className="gap-3.5">
+          <Label tone="panel">Sessão concluída</Label>
+          <div>
+            <span className="relative inline-block font-lcd text-[72px] leading-none">
+              <span aria-hidden="true" className="absolute left-0 top-0 select-none text-pt/[.13]">888</span>
+              <span className="relative">{String(pct).padStart(3, '0')}</span>
+            </span>
+          </div>
+          <Label tone="panel">% de acerto em {sum} revisões</Label>
+          <div className="flex flex-wrap items-center gap-2">
             {GRADES.map((g) => (
-              <span key={g} className="label" style={{ color: `var(--g${g})` }}>{GRADE_LABEL[g]} {t[g]}</span>
+              <Label key={g} className={GRADE_STYLE[g].text}>{GRADE_LABEL[g]} {t[g]}</Label>
             ))}
           </div>
           {session.missed.length > 0 && (
             <>
-              <span className="label">Fichas que você errou ({session.missed.length})</span>
-              <ul className="summary-list">
+              <Label tone="panel">Fichas que você errou ({session.missed.length})</Label>
+              <ul className="m-0 flex list-disc flex-col gap-1 pl-[18px] text-[14px]">
                 {session.missed.map((cid) => <li key={cid}>{session.cards.get(cid)?.front}</li>)}
               </ul>
             </>
           )}
-        </section>
-        <div className="spacer" />
-        <Link className="key bar" to={back}>▶ Concluir</Link>
+        </Panel>
+        <div className="mt-auto" />
+        <Link className={keyCls('bar')} to={back}>▶ Concluir</Link>
       </Shell>
     );
   }
@@ -140,40 +155,46 @@ export function StudyPage() {
 
   return (
     <Shell title={title} leave={leave}>
-      <div className="progress">
+      <div className="flex items-center gap-3 text-[12px] tracking-[0.1em]">
         <span>{String(pos).padStart(2, '0')}/{String(session.total).padStart(2, '0')}</span>
-        <div className="segbar" aria-hidden="true">
-          {Array.from({ length: 10 }, (_, i) => <span key={i} className={i < Math.max(1, lit) ? 'on' : ''} />)}
+        <div className="flex flex-1 gap-[3px]" aria-hidden="true">
+          {Array.from({ length: 10 }, (_, i) => <span key={i} className={`h-2.5 flex-1 ${i < Math.max(1, lit) ? 'bg-ink' : 'bg-ink/[.16]'}`} />)}
         </div>
         <span>N{String(n).padStart(2, '0')} A{String(a).padStart(2, '0')} R{String(r).padStart(2, '0')}</span>
       </div>
 
       {!flipped ? (
         <>
-          <button type="button" className="studycard front" onClick={() => setFlipped(true)}>
-            <span className="side" style={{ width: '100%' }}><span>Frente</span><span>{tag}</span></span>
-            <span className="text">{current.front}</span>
-            <span className="tip">TOQUE PARA VER A RESPOSTA █</span>
+          <button type="button" className={`${CARD_BASE} border-0 bg-panel text-pt`} onClick={() => setFlipped(true)}>
+            <span className="flex w-full justify-between gap-2 text-[12px] uppercase tracking-[0.16em] text-pm"><span>Frente</span><span>{tag}</span></span>
+            <span className={`${CARD_TEXT} text-[38px] min-[421px]:text-[44px]`}>{current.front}</span>
+            <span className="text-[13px] tracking-[0.12em] text-pm">TOQUE PARA VER A RESPOSTA █</span>
           </button>
-          <button type="button" className="key bar" onClick={() => setFlipped(true)}>▶ Mostrar resposta</button>
+          <button type="button" className={keyCls('bar')} onClick={() => setFlipped(true)}>▶ Mostrar resposta</button>
         </>
       ) : (
         <>
-          <div className="studycard back" aria-live="polite">
-            <div className="side"><span>Verso</span><span>{tag}</span></div>
+          <div className={`${CARD_BASE} border-[3px] border-panel bg-back text-panel`} aria-live="polite">
+            <div className="flex justify-between gap-2 text-[12px] uppercase tracking-[0.16em]"><span>Verso</span><span>{tag}</span></div>
             <div>
-              <p className="ask">&gt; {current.front}</p>
-              <div className="text">{current.back}</div>
+              <p className="mb-3 text-[13px] uppercase tracking-[0.06em]">&gt; {current.front}</p>
+              <div className={`${CARD_TEXT} text-[28px] min-[421px]:text-[32px]`}>{current.back}</div>
             </div>
-            <div className="tip">QUÃO BEM VOCÊ LEMBROU?</div>
+            <div className="text-[13px] tracking-[0.12em]">QUÃO BEM VOCÊ LEMBROU?</div>
           </div>
-          <div className="grades" role="group" aria-label="Quão bem você lembrou">
+          <div className="grid grid-cols-4 gap-2" role="group" aria-label="Quão bem você lembrou">
             {GRADES.map((g) => (
-              <button key={g} type="button" className={`grade g${g}`} onClick={() => void grade(g)} aria-keyshortcuts={String(g)}>
+              <button
+                key={g}
+                type="button"
+                className={`flex min-h-20 flex-col items-center gap-1 rounded-[10px] border-2 px-0.5 py-2 text-[13px] leading-[normal] uppercase tracking-[0.06em] hover:brightness-[1.15] ${GRADE_STYLE[g].key}`}
+                onClick={() => void grade(g)}
+                aria-keyshortcuts={String(g)}
+              >
                 {GRADE_LABEL[g]}
-                <span className="when">{labels?.[g].toUpperCase()}</span>
-                <span className="lv" aria-hidden="true">
-                  {[1, 2, 3, 4].map((i) => <i key={i} className={i <= LEVELS[g] ? 'on' : ''} />)}
+                <span className="font-lcd text-[28px] leading-none">{labels?.[g].toUpperCase()}</span>
+                <span className="flex gap-[3px]" aria-hidden="true">
+                  {[1, 2, 3, 4].map((i) => <i key={i} className={`block size-2 ${i <= g ? GRADE_STYLE[g].on : GRADE_STYLE[g].off}`} />)}
                 </span>
               </button>
             ))}
@@ -184,7 +205,7 @@ export function StudyPage() {
   );
 }
 
-function Shell({ title, leave, children }: { title: string; leave: React.ReactNode; children: React.ReactNode }) {
+function Shell({ title, leave, children }: { title: string; leave: ReactNode; children: ReactNode }) {
   return (
     <Page eyebrow="ESTUDANDO" title={title} small actions={leave}>
       {children}

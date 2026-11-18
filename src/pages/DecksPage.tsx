@@ -2,9 +2,10 @@ import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Page } from '../components/Page';
-import { Modal } from '../components/Modal';
+import { DIALOG_BODY, DIALOG_TITLE, Modal } from '../components/Modal';
 import { Icon } from '../components/Icon';
 import { Seg } from '../components/Seg';
+import { FIELD_INPUT, FIELD_LABEL, ICON_KEY, Label, Panel, keyCls } from '../components/ui';
 import { readText } from '../components/files';
 import { parseAnki } from '../anki';
 import { addCards, countCards, createDeck, db, getSettings, newStudiedToday } from '../db';
@@ -53,14 +54,14 @@ export function DecksPage() {
       status={status}
       actions={
         <>
-          <Link className="iconkey" to="/progress" aria-label="Progresso"><Icon name="grid" /></Link>
-          <Link className="iconkey" to="/settings" aria-label="Configurações"><Icon name="sliders" /></Link>
+          <Link className={ICON_KEY} to="/progress" aria-label="Progresso"><Icon name="grid" /></Link>
+          <Link className={ICON_KEY} to="/settings" aria-label="Configurações"><Icon name="sliders" /></Link>
         </>
       }
     >
-      <div className="row nowrap">
-        <button type="button" className="key flex1" onClick={() => setCreating(true)}>[+] Novo deck</button>
-        <button type="button" className="key outline flex1" onClick={() => fileRef.current?.click()}>Importar Anki</button>
+      <div className="flex gap-2">
+        <button type="button" className={keyCls('solid', 'flex-1')} onClick={() => setCreating(true)}>[+] Novo deck</button>
+        <button type="button" className={keyCls('outline', 'flex-1')} onClick={() => fileRef.current?.click()}>Importar Anki</button>
         <input
           ref={fileRef}
           type="file"
@@ -74,58 +75,58 @@ export function DecksPage() {
         />
       </div>
 
-      {rows && list.length === 0 && <p className="empty">NENHUM DECK AINDA. CRIE UM OU IMPORTE DO ANKI.</p>}
+      {rows && list.length === 0 && <p className="py-6 text-center uppercase text-muted">Nenhum deck ainda. Crie um ou importe do Anki.</p>}
 
-      <div className="decks">
+      <div className="flex flex-col gap-2.5">
         {list.map(({ deck, counts }) => {
           const work = counts.fresh + counts.learning + counts.review;
           return (
-            <section key={deck.id} className="panel">
-              <div className="deck-head">
-                <Link className="deck-name" to={`/deck/${deck.id}`}>{deck.name}</Link>
-                <span className="deck-count pm">{String(counts.total).padStart(3, '0')} FICHAS</span>
+            <Panel key={deck.id}>
+              <div className="flex items-baseline justify-between gap-2">
+                <Link className="text-[17px] uppercase tracking-[0.06em] no-underline break-words" to={`/deck/${deck.id}`}>{deck.name}</Link>
+                <span className="whitespace-nowrap text-[12px] text-pm">{String(counts.total).padStart(3, '0')} FICHAS</span>
               </div>
               {work > 0 ? (
                 <>
-                  <div className="meters">
-                    <div className="meter"><span className="label">Novos</span><Seg value={counts.fresh} /></div>
-                    <div className="meter"><span className="label">Aprendendo</span><Seg value={counts.learning} /></div>
-                    <div className="meter"><span className="label">Revisar</span><Seg value={counts.review} /></div>
+                  <div className="flex flex-wrap gap-[22px]">
+                    <div className="flex flex-col gap-0.5"><Label tone="panel">Novos</Label><Seg value={counts.fresh} onPanel /></div>
+                    <div className="flex flex-col gap-0.5"><Label tone="panel">Aprendendo</Label><Seg value={counts.learning} onPanel /></div>
+                    <div className="flex flex-col gap-0.5"><Label tone="panel">Revisar</Label><Seg value={counts.review} onPanel /></div>
                   </div>
-                  <div className="row">
-                    <Link className="key" to={`/study/${deck.id}`}>▶ Estudar</Link>
-                    <Link className="key outline" to={`/deck/${deck.id}`}>Fichas</Link>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link className={keyCls('lit')} to={`/study/${deck.id}`}>▶ Estudar</Link>
+                    <Link className={keyCls('litOutline')} to={`/deck/${deck.id}`}>Fichas</Link>
                   </div>
                 </>
               ) : (
-                <div className="idle">
-                  <Seg value={0} digits={3} />
-                  <div className="row" style={{ justifyContent: 'flex-end' }}>
-                    <span className="label pm">{counts.total === 0 ? 'Deck vazio' : 'Em dia hoje ■'}</span>
-                    <Link className="key outline" to={`/deck/${deck.id}`}>Fichas</Link>
+                <div className="flex min-h-11 items-center justify-between gap-3">
+                  <Seg value={0} digits={3} onPanel />
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Label tone="panel">{counts.total === 0 ? 'Deck vazio' : 'Em dia hoje ■'}</Label>
+                    <Link className={keyCls('litOutline')} to={`/deck/${deck.id}`}>Fichas</Link>
                   </div>
                 </div>
               )}
-            </section>
+            </Panel>
           );
         })}
       </div>
 
-      <div className="spacer" />
+      <div className="mt-auto" />
       {todayTotal > 0 && (
-        <Link className="key bar" to="/study/all">▶ Estudar tudo · {String(todayTotal).padStart(3, '0')} hoje</Link>
+        <Link className={keyCls('bar')} to="/study/all">▶ Estudar tudo · {String(todayTotal).padStart(3, '0')} hoje</Link>
       )}
 
       <Modal open={creating} onClose={() => setCreating(false)}>
-        <form className="dlg" onSubmit={(e) => { e.preventDefault(); void create(); }}>
-          <h2>Novo deck</h2>
-          <div className="field">
-            <label htmlFor="deck-name">Nome</label>
-            <input id="deck-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Inglês, Anatomia…" />
+        <form className={DIALOG_BODY} onSubmit={(e) => { e.preventDefault(); void create(); }}>
+          <h2 className={DIALOG_TITLE}>Novo deck</h2>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="deck-name" className={FIELD_LABEL}>Nome</label>
+            <input id="deck-name" className={`${FIELD_INPUT} min-h-12`} value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Inglês, Anatomia…" />
           </div>
-          <div className="row nowrap">
-            <button type="button" className="key outline flex1" onClick={() => setCreating(false)}>Cancelar</button>
-            <button type="submit" className="key flex1">Criar ▮</button>
+          <div className="flex gap-2">
+            <button type="button" className={keyCls('outline', 'flex-1')} onClick={() => setCreating(false)}>Cancelar</button>
+            <button type="submit" className={keyCls('solid', 'flex-1')}>Criar ▮</button>
           </div>
         </form>
       </Modal>
