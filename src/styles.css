@@ -87,7 +87,7 @@ a { color: inherit; }
 .panel .label { color: var(--pm); }
 .panel .key { background: var(--pt); border-color: var(--pt); color: var(--panel); }
 .panel .key.outline { background: transparent; color: var(--pt); }
-.box { border: 2px solid var(--panel); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; }
+.box { border: 2px solid var(--panel); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; background: var(--bg); }
 .box .label { color: var(--muted); }
 
 /* número com segmentos "apagados" ao fundo */
@@ -124,14 +124,14 @@ a { color: inherit; }
 .chip { min-height: 36px; padding: 6px 10px; border: 2px solid var(--panel); border-radius: 8px; background: transparent; color: var(--ink); font: 400 12px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; }
 .chip[aria-pressed='true'] { background: var(--panel); color: var(--pt); }
 .cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.cardrow { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 6px; border: 2px solid var(--panel); border-radius: 10px; padding: 12px 14px; background: transparent; }
-.cardrow:hover { background: rgba(var(--ink-rgb), 0.07); }
+.cardrow { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 6px; border: 2px solid var(--panel); border-radius: 10px; padding: 12px 14px; background: var(--bg); }
+.cardrow:hover { background: color-mix(in srgb, var(--bg) 90%, var(--ink)); }
 .cardrow .meta { font-size: 11px; letter-spacing: 0.14em; color: var(--muted); text-transform: uppercase; }
 .cardrow .q { font: 400 24px/1.05 var(--lcd); text-transform: uppercase; overflow-wrap: anywhere; white-space: pre-wrap; }
 .cardrow .a { font-size: 14px; overflow-wrap: anywhere; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* diálogo */
-dialog { width: min(520px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 0; border: 3px solid var(--panel); border-radius: 20px; background-color: var(--bg); background-image: radial-gradient(var(--dots) 1.3px, transparent 1.7px); background-size: 12px 12px; color: var(--ink); overflow: auto; }
+dialog { width: min(520px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 0; border: 3px solid var(--panel); border-radius: 20px; background: var(--bg); color: var(--ink); overflow: auto; }
 dialog::backdrop { background: rgba(var(--ink-rgb), 0.6); }
 .dlg { padding: 18px 16px 20px; display: flex; flex-direction: column; gap: 14px; }
 .dlg h2 { margin: 0; font-family: var(--head); font-weight: 800; font-size: 26px; line-height: 1; text-transform: uppercase; }
@@ -149,8 +149,8 @@ dialog::backdrop { background: rgba(var(--ink-rgb), 0.6); }
 .segbar span { flex: 1; height: 10px; background: var(--ghost-ink); }
 .segbar span.on { background: var(--ink); }
 .studycard { flex: 1; max-height: 470px; min-height: 260px; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; text-align: left; width: 100%; border: 0; }
-.studycard.front { background-color: var(--panel); background-image: radial-gradient(rgba(var(--pt-rgb), 0.12) 1.2px, transparent 1.6px); background-size: 12px 12px; color: var(--pt); }
-.studycard.back { background-color: var(--back); background-image: radial-gradient(rgba(var(--ink-rgb), 0.14) 1.2px, transparent 1.6px); background-size: 12px 12px; border: 3px solid var(--panel); color: var(--panel); cursor: default; }
+.studycard.front { background-color: var(--panel); color: var(--pt); }
+.studycard.back { background-color: var(--back); border: 3px solid var(--panel); color: var(--panel); cursor: default; }
 .studycard .side { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; }
 .studycard.front .side, .studycard.front .tip { color: var(--pm); }
 .studycard .tip { font-size: 13px; letter-spacing: 0.12em; }
