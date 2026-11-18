@@ -2,6 +2,8 @@
 
 App de flashcards com repetição espaçada, vários decks e progresso salvo no aparelho. Funciona offline e pode ser instalado no celular (PWA). Visual de LCD de matriz de pontos, com quatro temas (âmbar é o padrão).
 
+App publicado em https://lhpalma.github.io/flashcarderias/
+
 ## Comandos
 
 ```bash
