@@ -28,7 +28,8 @@ const GRADE_STYLE: Record<Grade, { key: string; on: string; off: string; text: s
   4: { key: 'border-g4 bg-g4-bg text-g4', on: 'bg-g4', off: 'bg-g4/25', text: 'text-g4' },
 };
 
-const CARD_BASE = 'flex min-h-[260px] w-full max-h-[470px] flex-1 flex-col justify-between gap-3.5 rounded-2xl p-5 text-left';
+// As duas faces da ficha ocupam o mesmo lugar (grid) e escondem o lado de trás ao girar.
+const FACE = '[grid-area:1/1] flex flex-col justify-between gap-3.5 overflow-y-auto rounded-2xl p-5 text-left backface-hidden';
 const CARD_TEXT = 'font-lcd uppercase leading-[1.02] break-words whitespace-pre-wrap text-balance';
 
 export function StudyPage() {
@@ -206,6 +207,8 @@ export function StudyPage() {
   const lit = Math.round((session.finished / session.total) * 10);
   const pos = Math.min(session.finished + 1, session.total);
   const tag = current.tags[current.tags.length - 1] ?? '';
+  // Muda a cada ficha apresentada (inclusive quando a mesma ficha volta), para a ficha nova nascer desvirada.
+  const presentation = `${current.id}:${session.tally[1] + session.tally[2] + session.tally[3] + session.tally[4]}`;
 
   return (
     <Shell title={title} leave={leave}>
@@ -217,25 +220,48 @@ export function StudyPage() {
         <span>N{String(n).padStart(2, '0')} A{String(a).padStart(2, '0')} R{String(r).padStart(2, '0')}</span>
       </div>
 
-      {!flipped ? (
-        <>
-          <button type="button" className={`${CARD_BASE} border-0 bg-panel text-pt`} onClick={() => setFlipped(true)}>
+      {/*
+        A ficha vira em 3D ao mostrar a resposta. A "key" muda a cada ficha apresentada, então a próxima ficha
+        nasce já virada para a frente (sem girar de volta, o que deixaria a resposta nova aparecer de relance).
+        O verso só ganha conteúdo depois da virada, e a face que está de costas fica inerte (sem foco nem leitor de tela).
+        Com "reduzir movimento" ligado no aparelho, a virada é instantânea.
+      */}
+      <div key={presentation} className="flex min-h-[260px] max-h-[470px] w-full flex-1 [perspective:1400px]">
+        <div
+          className={`grid w-full transform-3d transition-transform duration-500 ease-out motion-reduce:transition-none ${flipped ? 'rotate-y-180' : ''}`}
+          data-flipped={flipped}
+        >
+          <button
+            type="button"
+            data-face="front"
+            inert={flipped}
+            className={`${FACE} border-0 bg-panel text-pt`}
+            onClick={() => setFlipped(true)}
+          >
             <span className="flex w-full justify-between gap-2 text-[12px] uppercase tracking-[0.16em] text-pm"><span>Frente</span><span>{tag}</span></span>
             <span className={`${CARD_TEXT} text-[38px] min-[421px]:text-[44px]`}>{current.front}</span>
             <span className="text-[13px] tracking-[0.12em] text-pm">TOQUE PARA VER A RESPOSTA █</span>
           </button>
-          <button type="button" className={keyCls('bar')} onClick={() => setFlipped(true)}>▶ Mostrar resposta</button>
-        </>
+          <div data-face="back" inert={!flipped} className={`${FACE} rotate-y-180 border-[3px] border-panel bg-back text-panel`}>
+            {flipped && (
+              <>
+                <div className="flex justify-between gap-2 text-[12px] uppercase tracking-[0.16em]"><span>Verso</span><span>{tag}</span></div>
+                <div>
+                  <p className="mb-3 text-[13px] uppercase tracking-[0.06em]">&gt; {current.front}</p>
+                  <div className={`${CARD_TEXT} text-[28px] min-[421px]:text-[32px]`}>{current.back}</div>
+                </div>
+                <div className="text-[13px] tracking-[0.12em]">QUÃO BEM VOCÊ LEMBROU?</div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+      <p className="sr-only" role="status">{flipped ? `Resposta: ${current.back}` : ''}</p>
+
+      {!flipped ? (
+        <button type="button" className={keyCls('bar')} onClick={() => setFlipped(true)}>▶ Mostrar resposta</button>
       ) : (
         <>
-          <div className={`${CARD_BASE} border-[3px] border-panel bg-back text-panel`} aria-live="polite">
-            <div className="flex justify-between gap-2 text-[12px] uppercase tracking-[0.16em]"><span>Verso</span><span>{tag}</span></div>
-            <div>
-              <p className="mb-3 text-[13px] uppercase tracking-[0.06em]">&gt; {current.front}</p>
-              <div className={`${CARD_TEXT} text-[28px] min-[421px]:text-[32px]`}>{current.back}</div>
-            </div>
-            <div className="text-[13px] tracking-[0.12em]">QUÃO BEM VOCÊ LEMBROU?</div>
-          </div>
           <div className="grid grid-cols-4 gap-2" role="group" aria-label="Quão bem você lembrou">
             {GRADES.map((g) => (
               <button
