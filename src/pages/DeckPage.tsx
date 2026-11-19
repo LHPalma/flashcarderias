@@ -5,10 +5,12 @@ import { Page } from '../components/Page';
 import { DIALOG_BODY, DIALOG_TITLE, Modal } from '../components/Modal';
 import { Icon } from '../components/Icon';
 import { CardEditor } from '../components/CardEditor';
+import { GroupSelect } from '../components/GroupSelect';
 import { FIELD_LABEL, ICON_KEY, Label, keyCls } from '../components/ui';
 import { download, readText, slug } from '../components/files';
 import { parseAnki, toAnki } from '../anki';
-import { addCards, countCards, db, deleteDeck, getSettings, newStudiedToday, type Card } from '../db';
+import { addCards, countCards, db, deleteDeck, getSettings, moveDeck, newStudiedToday, type Card } from '../db';
+import { groupPath } from '../groups';
 import { endOfDay, formatDue } from '../srs';
 import { stageBuckets } from '../stats';
 
@@ -34,6 +36,7 @@ export function DeckPage() {
   const [status, setStatus] = useState('');
 
   const deck = useLiveQuery(() => db.decks.get(id), [id]);
+  const groups = useLiveQuery(() => db.groups.toArray(), []) ?? [];
   const cards = useLiveQuery(() => db.cards.where('deckId').equals(id).sortBy('id'), [id]);
   const counts = useLiveQuery(async () => {
     const now = Date.now();
@@ -63,6 +66,7 @@ export function DeckPage() {
   if (!deck) return <Page title="Deck" backTo="/"><p className="py-6 text-center uppercase text-muted">Deck não encontrado.</p></Page>;
 
   const toStudy = counts ? counts.fresh + counts.learning + counts.review : 0;
+  const path = groupPath(groups, deck.groupId); // grupos acima deste deck, da raiz até o mais próximo
 
   function openEditor(c: Card | null) {
     setEditing(c);
@@ -84,7 +88,7 @@ export function DeckPage() {
     <Page
       title={deck.name}
       small
-      eyebrow={`DECK // ${String(all.length).padStart(3, '0')} FICHAS`}
+      eyebrow={`${path.length ? path.join(' / ') : 'DECK'} // ${String(all.length).padStart(3, '0')} FICHAS`}
       backTo="/"
       status={status}
       actions={
@@ -183,12 +187,13 @@ export function DeckPage() {
               <button type="submit" className={keyCls('solid')}>Salvar</button>
             </div>
           </form>
+          <GroupSelect label="Grupo" groups={groups} value={deck.groupId} onChange={(g) => void moveDeck(id, g)} />
           <div className="flex flex-wrap gap-2">
             <button type="button" className={keyCls('outline', 'flex-1')} onClick={() => fileRef.current?.click()}>Importar .txt</button>
             <button
               type="button"
               className={keyCls('outline', 'flex-1')}
-              onClick={() => download(`${slug(deck.name)}.txt`, toAnki(deck.name, all.map(({ front, back, tags }) => ({ front, back, tags }))))}
+              onClick={() => download(`${slug(deck.name)}.txt`, toAnki([...path, deck.name].join('::'), all.map(({ front, back, tags }) => ({ front, back, tags }))))}
             >
               Exportar .txt
             </button>

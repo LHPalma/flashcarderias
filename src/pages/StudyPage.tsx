@@ -5,6 +5,7 @@ import { Page } from '../components/Page';
 import { Icon } from '../components/Icon';
 import { ICON_KEY, Label, Panel, keyCls } from '../components/ui';
 import { buildQueue, db, gradeCard, type Card } from '../db';
+import { buildTree, findNode, subtreeDeckIds } from '../groups';
 import { GRADES, GRADE_LABEL, MIN, previewLabels, type Grade } from '../srs';
 
 interface Session {
@@ -28,9 +29,12 @@ const CARD_BASE = 'flex min-h-[260px] w-full max-h-[470px] flex-1 flex-col justi
 const CARD_TEXT = 'font-lcd uppercase leading-[1.02] break-words whitespace-pre-wrap text-balance';
 
 export function StudyPage() {
-  const param = useParams().id;
-  const deckId = param === 'all' ? undefined : Number(param);
+  // Rota: "all" (tudo), "g12" (o grupo 12 e tudo dentro dele) ou "5" (o deck 5).
+  const param = useParams().id ?? 'all';
+  const groupId = /^g\d+$/.test(param) ? Number(param.slice(1)) : undefined;
+  const deckId = param === 'all' || groupId !== undefined ? undefined : Number(param);
   const deck = useLiveQuery(() => (deckId === undefined ? undefined : db.decks.get(deckId)), [deckId]);
+  const group = useLiveQuery(() => (groupId === undefined ? undefined : db.groups.get(groupId)), [groupId]);
   const [session, setSession] = useState<Session | null>(null);
   const [flipped, setFlipped] = useState(false);
   const busy = useRef(false);
@@ -38,7 +42,15 @@ export function StudyPage() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const queue = await buildQueue(deckId, Date.now());
+      let scope: number[] | undefined; // undefined = todos os decks
+      if (groupId !== undefined) {
+        const [groups, decks] = await Promise.all([db.groups.toArray(), db.decks.toArray()]);
+        const node = findNode(buildTree(groups, decks).roots, groupId);
+        scope = node ? subtreeDeckIds(node) : [];
+      } else if (deckId !== undefined) {
+        scope = [deckId];
+      }
+      const queue = await buildQueue(scope, Date.now());
       const list = await db.cards.bulkGet(queue);
       if (!alive) return;
       const cards = new Map<number, Card>();
@@ -46,7 +58,7 @@ export function StudyPage() {
       setSession({ queue, cards, total: queue.length, finished: 0, tally: { 1: 0, 2: 0, 3: 0, 4: 0 }, missed: [] });
     })();
     return () => { alive = false; };
-  }, [deckId]);
+  }, [deckId, groupId]);
 
   const current = session && session.queue.length > 0 ? session.cards.get(session.queue[0]) ?? null : null;
   const labels = useMemo(() => (current ? previewLabels(current, Date.now()) : null), [current, flipped]);
@@ -93,7 +105,7 @@ export function StudyPage() {
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const title = deckId === undefined ? 'TODOS OS DECKS' : deck?.name ?? '…';
+  const title = groupId !== undefined ? group?.name ?? '…' : deckId === undefined ? 'TODOS OS DECKS' : deck?.name ?? '…';
   const back = deckId === undefined ? '/' : `/deck/${deckId}`;
   const leave = (
     <Link className={ICON_KEY} to={back} aria-label="Sair do estudo"><Icon name="close" /></Link>

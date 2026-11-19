@@ -7,7 +7,8 @@ export interface ParsedCard {
 }
 
 export interface ParsedDeck {
-  deckName?: string;
+  deckName?: string; // último trecho do nome ("Livros::Psicologia::Meu Livro" → "Meu Livro")
+  deckPath?: string[]; // nome completo separado por "::": grupos e depois o deck
   cards: ParsedCard[];
 }
 
@@ -30,6 +31,7 @@ export function htmlToText(s: string): string {
 export function parseAnki(text: string): ParsedDeck {
   const cards: ParsedCard[] = [];
   let deckName: string | undefined;
+  let deckPath: string[] | undefined;
   let tagCol = 3;
   let html = false;
   let sep = '\t';
@@ -41,7 +43,11 @@ export function parseAnki(text: string): ParsedDeck {
       if (!m) continue;
       const key = m[1].toLowerCase();
       const val = m[2].trim();
-      if (key === 'deck') deckName = val.split('::').pop() || val;
+      if (key === 'deck') {
+        const parts = val.split('::').map((p) => p.trim()).filter(Boolean);
+        deckPath = parts.length ? parts : undefined;
+        deckName = parts.length ? parts[parts.length - 1] : val;
+      }
       else if (key === 'tags column') tagCol = parseInt(val, 10) || 3;
       else if (key === 'html') html = val === 'true';
       else if (key === 'separator') {
@@ -59,9 +65,10 @@ export function parseAnki(text: string): ParsedDeck {
     if (!front || !back) continue;
     cards.push({ front, back, tags: (f[tagCol - 1] ?? '').trim().split(/\s+/).filter(Boolean) });
   }
-  return { deckName, cards };
+  return { deckName, deckPath, cards };
 }
 
+/** `deckName` pode ser o caminho completo ("Livros::Meu Livro") para manter os grupos ao exportar. */
 export function toAnki(deckName: string, cards: ParsedCard[]): string {
   const cell = (s: string) => s.replace(/\t/g, ' ').replace(/\r?\n/g, '<br>');
   const head = ['#separator:tab', '#html:true', `#deck:${deckName}`, '#tags column:3'];

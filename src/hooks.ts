@@ -14,6 +14,32 @@ export function useSettings(): [Settings, (patch: Partial<Settings>) => Promise<
   return [settings, update];
 }
 
+const COLLAPSED_KEY = 'fc.collapsed';
+
+/** Quais grupos estão fechados na tela inicial. Por padrão, tudo aberto; a escolha fica salva no aparelho. */
+export function useCollapsed(): [Set<number>, (id: number) => void] {
+  const [set, setSet] = useState<Set<number>>(() => {
+    try {
+      return new Set<number>(JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '[]'));
+    } catch {
+      return new Set<number>();
+    }
+  });
+  const toggle = useCallback((id: number) => {
+    setSet((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      try {
+        localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]));
+      } catch {
+        /* sem localStorage, só não lembra na próxima vez */
+      }
+      return next;
+    });
+  }, []);
+  return [set, toggle];
+}
+
 interface InstallEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;

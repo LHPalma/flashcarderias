@@ -26,6 +26,7 @@ describe('parseAnki', () => {
   it('importa um deck com várias fichas e pula a linha sem verso', () => {
     const r = parseAnki(SAMPLE);
     expect(r.deckName).toBe('Francês');
+    expect(r.deckPath).toEqual(['Idiomas', 'Francês']);
     expect(r.cards).toEqual([
       { front: 'Bonjour\n(de manhã)', back: 'Olá', tags: ['saudações'] },
       { front: 'Merci', back: 'Obrigado', tags: ['saudações', 'cortesia'] },

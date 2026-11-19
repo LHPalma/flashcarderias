@@ -1,10 +1,20 @@
 import Dexie, { type EntityTable } from 'dexie';
 import { type Grade, type SrsFields, endOfDay, isDue, newSrsFields, schedule, startOfDay } from './srs';
 import type { ParsedCard } from './anki';
+import { descendantIds } from './groups';
 
 export interface Deck {
   id: number;
   name: string;
+  createdAt: number;
+  groupId?: number; // sem grupo = fica solto na tela inicial
+}
+
+/** Grupo de decks. Pode ficar dentro de outro grupo (parentId). */
+export interface Group {
+  id: number;
+  name: string;
+  parentId?: number;
   createdAt: number;
 }
 
@@ -33,6 +43,7 @@ export interface MetaRow {
 
 export const db = new Dexie('flashcards') as Dexie & {
   decks: EntityTable<Deck, 'id'>;
+  groups: EntityTable<Group, 'id'>;
   cards: EntityTable<Card, 'id'>;
   reviews: EntityTable<ReviewLog, 'id'>;
   meta: EntityTable<MetaRow, 'key'>;
@@ -44,6 +55,8 @@ db.version(1).stores({
   reviews: '++id, deckId, ts',
   meta: 'key',
 });
+// v2: grupos de decks. Os decks que já existem continuam soltos (sem groupId).
+db.version(2).stores({ groups: '++id' });
 
 /* ---------- configurações ---------- */
 
@@ -67,8 +80,59 @@ export async function saveSettings(s: Settings): Promise<void> {
 
 /* ---------- decks e cartões ---------- */
 
-export async function createDeck(name: string): Promise<number> {
-  return db.decks.add({ name: name.trim() || 'Novo deck', createdAt: Date.now() } as Deck);
+export async function createDeck(name: string, groupId?: number): Promise<number> {
+  return db.decks.add({ name: name.trim() || 'Novo deck', createdAt: Date.now(), groupId } as Deck);
+}
+
+/* ---------- grupos ---------- */
+
+export async function createGroup(name: string, parentId?: number): Promise<number> {
+  return db.groups.add({ name: name.trim() || 'Novo grupo', parentId, createdAt: Date.now() } as Group);
+}
+
+export async function renameGroup(id: number, name: string): Promise<void> {
+  const clean = name.trim();
+  if (clean) await db.groups.update(id, { name: clean });
+}
+
+export async function moveDeck(deckId: number, groupId?: number): Promise<void> {
+  await db.decks.update(deckId, { groupId });
+}
+
+/** Move um grupo para dentro de outro (ou para a raiz). Recusa mover para dentro de si mesmo ou de um descendente. */
+export async function moveGroup(id: number, parentId?: number): Promise<void> {
+  if (parentId !== undefined && descendantIds(await db.groups.toArray(), id).has(parentId)) {
+    throw new Error('Não dá para mover um grupo para dentro dele mesmo.');
+  }
+  await db.groups.update(id, { parentId });
+}
+
+/** Apaga só o grupo. Subgrupos e decks dele sobem para o grupo-pai (ou para a raiz). */
+export async function deleteGroup(id: number): Promise<void> {
+  await db.transaction('rw', db.groups, db.decks, async () => {
+    const group = await db.groups.get(id);
+    if (!group) return;
+    const up = group.parentId;
+    await db.groups.filter((g) => g.parentId === id).modify({ parentId: up });
+    await db.decks.filter((d) => d.groupId === id).modify({ groupId: up });
+    await db.groups.delete(id);
+  });
+}
+
+/** Garante que o caminho de grupos exista (ex.: ["Livros", "Psicologia"]) e devolve o último. */
+export async function ensureGroupPath(path: string[]): Promise<number | undefined> {
+  const norm = (s: string) => s.trim().toLocaleLowerCase('pt-BR');
+  return db.transaction('rw', db.groups, async () => {
+    let parent: number | undefined;
+    for (const raw of path) {
+      const name = raw.trim();
+      if (!name) continue;
+      const all = await db.groups.toArray();
+      const hit = all.find((g) => g.parentId === parent && norm(g.name) === norm(name));
+      parent = hit ? hit.id : await createGroup(name, parent);
+    }
+    return parent;
+  });
 }
 
 export async function deleteDeck(id: number): Promise<void> {
@@ -100,14 +164,32 @@ export async function newStudiedToday(now: number, deckId?: number): Promise<num
   return logs.filter((l) => l.wasNew && (deckId === undefined || l.deckId === deckId)).length;
 }
 
-/** IDs na ordem de estudo: aprendizado vencido, revisões do dia, depois cartões novos até o limite. */
-export async function buildQueue(deckId: number | undefined, now: number): Promise<number[]> {
-  const all = deckId === undefined ? await db.cards.toArray() : await db.cards.where('deckId').equals(deckId).toArray();
+/**
+ * IDs na ordem de estudo: aprendizado vencido, revisões do dia, depois cartões novos.
+ * `deckIds` limita a esses decks (um deck, um grupo inteiro); indefinido = todos.
+ * O limite de fichas novas por dia vale para cada deck, igual ao que a tela inicial mostra.
+ */
+export async function buildQueue(deckIds: number[] | undefined, now: number): Promise<number[]> {
+  const all =
+    deckIds === undefined
+      ? await db.cards.toArray()
+      : (await Promise.all(deckIds.map((id) => db.cards.where('deckId').equals(id).toArray()))).flat();
   const settings = await getSettings();
   const learning = all.filter((c) => c.state === 'learning' && isDue(c, now)).sort((a, b) => a.due - b.due);
   const reviews = all.filter((c) => c.state === 'review' && isDue(c, now)).sort((a, b) => a.due - b.due);
-  const budget = Math.max(0, settings.newPerDay - (await newStudiedToday(now, deckId)));
-  const fresh = all.filter((c) => c.state === 'new').sort((a, b) => a.id - b.id).slice(0, budget);
+
+  const startedToday = new Map<number, number>();
+  const logs = await db.reviews.where('ts').aboveOrEqual(startOfDay(now)).toArray();
+  for (const l of logs) if (l.wasNew) startedToday.set(l.deckId, (startedToday.get(l.deckId) ?? 0) + 1);
+
+  const freshByDeck = new Map<number, Card[]>();
+  for (const c of all.filter((c) => c.state === 'new').sort((a, b) => a.id - b.id)) {
+    freshByDeck.set(c.deckId, [...(freshByDeck.get(c.deckId) ?? []), c]);
+  }
+  const fresh = [...freshByDeck]
+    .sort((a, b) => a[0] - b[0])
+    .flatMap(([deckId, list]) => list.slice(0, Math.max(0, settings.newPerDay - (startedToday.get(deckId) ?? 0))));
+
   return [...learning, ...reviews, ...fresh].map((c) => c.id);
 }
 
@@ -147,8 +229,9 @@ export function countCards(cards: Card[], newBudget: number, now: number): DeckC
 /* ---------- backup ---------- */
 
 export interface Backup {
-  version: 1;
+  version: 1 | 2; // 2 = com grupos de decks; backups da versão 1 continuam sendo aceitos
   exportedAt: number;
+  groups?: Group[];
   decks: Deck[];
   cards: Card[];
   reviews: ReviewLog[];
@@ -157,8 +240,9 @@ export interface Backup {
 
 export async function exportBackup(): Promise<Backup> {
   return {
-    version: 1,
+    version: 2,
     exportedAt: Date.now(),
+    groups: await db.groups.toArray(),
     decks: await db.decks.toArray(),
     cards: await db.cards.toArray(),
     reviews: await db.reviews.toArray(),
@@ -167,9 +251,12 @@ export async function exportBackup(): Promise<Backup> {
 }
 
 export async function importBackup(b: Backup): Promise<void> {
-  if (b?.version !== 1 || !Array.isArray(b.decks) || !Array.isArray(b.cards)) throw new Error('Arquivo de backup inválido.');
-  await db.transaction('rw', [db.decks, db.cards, db.reviews, db.meta], async () => {
-    await Promise.all([db.decks.clear(), db.cards.clear(), db.reviews.clear()]);
+  if ((b?.version !== 1 && b?.version !== 2) || !Array.isArray(b.decks) || !Array.isArray(b.cards)) {
+    throw new Error('Arquivo de backup inválido.');
+  }
+  await db.transaction('rw', [db.groups, db.decks, db.cards, db.reviews, db.meta], async () => {
+    await Promise.all([db.groups.clear(), db.decks.clear(), db.cards.clear(), db.reviews.clear()]);
+    await db.groups.bulkAdd(b.groups ?? []);
     await db.decks.bulkAdd(b.decks);
     await db.cards.bulkAdd(b.cards);
     await db.reviews.bulkAdd(b.reviews ?? []);

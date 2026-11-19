@@ -6,19 +6,30 @@ export type KeyVariant = 'solid' | 'outline' | 'bar' | 'lit' | 'litOutline';
 const KEY_BASE =
   'inline-flex items-center justify-center gap-2 rounded-[10px] border-2 font-mono uppercase leading-[normal] no-underline disabled:cursor-default disabled:opacity-50 aria-disabled:opacity-50';
 
-const KEY_VARIANT: Record<KeyVariant, string> = {
-  solid: 'min-h-11 px-4 text-[15px] tracking-[0.1em] border-panel bg-panel text-pt',
-  outline: 'min-h-11 px-4 text-[15px] tracking-[0.1em] border-panel bg-transparent text-ink',
-  bar: 'min-h-[52px] w-full px-4 text-[16px] tracking-[0.14em] border-ink bg-ink text-page',
-  lit: 'min-h-11 px-4 text-[15px] tracking-[0.1em] border-pt bg-pt text-panel',
-  litOutline: 'min-h-11 px-4 text-[15px] tracking-[0.1em] border-pt bg-transparent text-pt',
+const KEY_COLOR: Record<KeyVariant, string> = {
+  solid: 'border-panel bg-panel text-pt',
+  outline: 'border-panel bg-transparent text-ink',
+  bar: 'border-ink bg-ink text-page',
+  lit: 'border-pt bg-pt text-panel',
+  litOutline: 'border-pt bg-transparent text-pt',
 };
 
-export const keyCls = (variant: KeyVariant = 'solid', extra = ''): string =>
-  `${KEY_BASE} ${KEY_VARIANT[variant]} ${extra}`.trim();
+const KEY_SIZE = {
+  normal: 'min-h-11 px-4 text-[15px] tracking-[0.1em]',
+  compact: 'min-h-11 px-2 text-[14px] tracking-[0.06em]', // para três teclas na mesma linha
+  bar: 'min-h-[52px] w-full px-4 text-[16px] tracking-[0.14em]',
+} as const;
+
+export const keyCls = (variant: KeyVariant = 'solid', extra = '', size: 'normal' | 'compact' = 'normal'): string =>
+  `${KEY_BASE} ${variant === 'bar' ? KEY_SIZE.bar : KEY_SIZE[size]} ${KEY_COLOR[variant]} ${extra}`.trim();
 
 /** Tecla quadrada só com ícone, no cabeçalho. */
 export const ICON_KEY = 'grid size-11 flex-none place-items-center rounded-[10px] border-0 bg-panel text-pt no-underline';
+/** Versão de contorno, para usar sobre o fundo claro (por exemplo, dentro de um grupo). */
+export const ICON_KEY_LINE = 'grid size-11 flex-none place-items-center rounded-[10px] border-2 border-panel bg-transparent text-ink';
+
+export const SELECT_CLS =
+  'min-h-12 w-full rounded-[10px] border-0 bg-panel px-3 py-2.5 font-lcd text-[22px] leading-[1.05] text-pt';
 
 /** Painel escuro (display invertido). A classe "panel" só marca o contexto para o foco. */
 export function Panel({ className = '', children, ...rest }: { className?: string; children: ReactNode } & HTMLAttributes<HTMLElement>) {

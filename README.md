@@ -18,7 +18,8 @@ npm run preview  # serve o build (o service worker só existe aqui, não no dev)
 
 - **Repetição espaçada** (`src/srs.ts`): inspirada no SM-2/Anki. Quatro respostas (Errei, Difícil, Bom, Fácil); cada botão mostra o prazo da próxima revisão.
 - **Dados** (`src/db.ts`): IndexedDB via Dexie, tudo no aparelho. Backup e restauração em JSON nos Ajustes.
-- **Anki**: importa e exporta `.txt` com campos separados por tab (`src/anki.ts`).
+- **Grupos de decks** (`src/groups.ts`): grupos aninhados na tela inicial (por exemplo `Livros` → `Psicologia` → deck). Dá para estudar um grupo inteiro, fechar grupos, mover decks e grupos de lugar e apagar um grupo sem perder nada: o conteúdo dele sobe para o grupo de cima.
+- **Anki**: importa e exporta `.txt` com campos separados por tab (`src/anki.ts`). Um `#deck:Livros::Psicologia::Meu Livro` cria os grupos `Livros` e `Psicologia` e põe o deck dentro; ao exportar, o caminho é mantido.
 - **Progresso** (`src/stats.ts`): mapa de calor de 22 semanas, sequência de dias e métricas, calculados a partir do histórico de revisões.
 - **Estilo**: Tailwind CSS v4. Os temas são variáveis CSS por `data-theme` em `src/styles.css`, expostas como cores do Tailwind (`bg-panel`, `text-pt`, `border-ink`…), então trocar de tema não exige classes novas. As teclas de resposta (`g1` a `g4`) têm cores fixas em todos os temas. Peças repetidas (teclas, painéis, caixas, rótulos) ficam em `src/components/ui.tsx`.
 - **Fontes** locais (`@fontsource`), para funcionar offline.
