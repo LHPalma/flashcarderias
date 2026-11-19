@@ -19,6 +19,8 @@ import { useTick } from '../hooks';
 const CHIP =
   'min-h-9 rounded-lg leading-[normal] border-2 border-panel bg-transparent px-2.5 py-1.5 text-[12px] uppercase tracking-[0.06em] text-ink aria-pressed:bg-panel aria-pressed:text-pt';
 
+const PAGE_SIZE = 100;
+
 function stateLabel(c: Card, now: number): string {
   if (c.state === 'new') return 'NOVA';
   if (c.state === 'learning') return 'APRENDENDO';
@@ -31,6 +33,8 @@ export function DeckPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [tag, setTag] = useState<string | null>(null);
+  // Quantas fichas a lista mostra. Volta ao começo quando a busca ou a tag mudam (por isso guarda a chave).
+  const [page, setPage] = useState({ n: PAGE_SIZE, key: '' });
   const [editing, setEditing] = useState<Card | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -64,6 +68,13 @@ export function DeckPage() {
   const shown = all
     .map((c, i) => ({ c, n: i + 1 }))
     .filter(({ c }) => (!tag || c.tags.includes(tag)) && (!q || (c.front + ' ' + c.back).toLowerCase().includes(q)));
+  // Desenhar milhares de fichas de uma vez trava o celular (20 mil fichas = 100 mil elementos): mostra por partes.
+  const filterKey = `${tag ?? ''}|${q}`;
+  // Mudou a busca ou a tag: recomeça nas primeiras fichas (e esquece o "Mostrar mais" de antes, mesmo se o filtro voltar).
+  if (page.key !== filterKey) setPage({ n: PAGE_SIZE, key: filterKey });
+  const visibleCount = page.key === filterKey ? page.n : PAGE_SIZE;
+  const visible = shown.slice(0, visibleCount);
+  const hidden = shown.length - visible.length;
 
   if (deck === undefined && cards === undefined) return <Page title="…" backTo="/"><p className="py-6 text-center uppercase text-muted">Carregando…</p></Page>;
   if (!deck) return <Page title="Deck" backTo="/"><p className="py-6 text-center uppercase text-muted">Deck não encontrado.</p></Page>;
@@ -151,7 +162,7 @@ export function DeckPage() {
         <p className="py-6 text-center uppercase text-muted">{all.length === 0 ? 'Deck vazio. Crie a primeira ficha.' : 'Nenhuma ficha encontrada.'}</p>
       ) : (
         <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
-          {shown.map(({ c, n }) => (
+          {visible.map(({ c, n }) => (
             <li key={c.id}>
               <button
                 type="button"
@@ -167,6 +178,11 @@ export function DeckPage() {
             </li>
           ))}
         </ul>
+      )}
+      {hidden > 0 && (
+        <button type="button" className={keyCls('outline')} onClick={() => setPage({ n: visibleCount + PAGE_SIZE, key: filterKey })}>
+          Mostrar mais ({visible.length} de {shown.length})
+        </button>
       )}
 
       <CardEditor open={editorOpen} deckId={id} card={editing} onClose={() => setEditorOpen(false)} />

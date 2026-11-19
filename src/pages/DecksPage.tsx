@@ -8,7 +8,7 @@ import { EditGroupDialog, NewDeckDialog, NewGroupDialog } from '../components/Gr
 import { ICON_KEY, ICON_KEY_LINE, Label, Panel, keyCls } from '../components/ui';
 import { readText } from '../components/files';
 import { parseAnki } from '../anki';
-import { addCards, countCards, createDeck, db, ensureGroupPath, getSettings, newStudiedToday, type Deck, type DeckCounts, type Group } from '../db';
+import { countCards, db, getSettings, importDeck, newStudiedToday, type Deck, type DeckCounts, type Group } from '../db';
 import { buildTree, subtreeDeckIds, type GroupNode } from '../groups';
 import { useCollapsed, useTick } from '../hooks';
 import { waitingText } from '../session';
@@ -47,10 +47,13 @@ export function DecksPage() {
     // "Livros::Psicologia::Meu Livro" vira o grupo Livros, dentro dele Psicologia, e o deck Meu Livro.
     const path = parsed.deckPath ?? [file.name.replace(/\.\w+$/, '')];
     const groupPath = path.slice(0, -1);
-    const groupId = await ensureGroupPath(groupPath);
-    const id = await createDeck(path[path.length - 1], groupId);
-    const n = await addCards(id, parsed.cards);
-    setStatus(`Deck criado${groupPath.length ? ` em ${groupPath.join(' / ')}` : ''} com ${n} fichas.`);
+    setStatus(`Importando ${parsed.cards.length} fichas…`);
+    try {
+      const { added } = await importDeck(path, parsed.cards);
+      setStatus(`Deck criado${groupPath.length ? ` em ${groupPath.join(' / ')}` : ''} com ${added} fichas.`);
+    } catch {
+      setStatus('Não consegui importar o arquivo. Nada foi criado.');
+    }
   }
 
   const groups = data?.groups ?? [];

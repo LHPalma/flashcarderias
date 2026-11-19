@@ -13,6 +13,7 @@ import {
   exportBackup,
   gradeCard,
   importBackup,
+  importDeck,
   moveDeck,
   moveGroup,
   saveSettings,
@@ -79,6 +80,34 @@ describe('grupos', () => {
     expect((await db.decks.get(deck))?.groupId).toBe(g);
     await moveDeck(deck, undefined);
     expect((await db.decks.get(deck))?.groupId).toBeUndefined();
+  });
+});
+
+describe('importDeck: tudo ou nada', () => {
+  it('cria grupos, deck e fichas juntos', async () => {
+    const r = await importDeck(['Livros', 'Psicologia', 'Meu Livro'], cards(30));
+    expect(r.added).toBe(30);
+    expect(await db.groups.count()).toBe(2);
+    expect((await db.decks.get(r.deckId))?.groupId).toBe(r.groupId);
+    expect(await db.cards.where('deckId').equals(r.deckId).count()).toBe(30);
+  });
+
+  it('se algo falha no meio, não sobra nada: nem deck vazio, nem grupos órfãos', async () => {
+    const bad = [...cards(3), { front: 'x', back: (() => 1) as never, tags: [] }]; // uma função não pode ser gravada
+    await expect(importDeck(['G', 'Sub', 'D'], bad)).rejects.toThrow();
+    expect(await db.decks.count()).toBe(0);
+    expect(await db.groups.count()).toBe(0);
+    expect(await db.cards.count()).toBe(0);
+  });
+
+  it('exige um nome', async () => {
+    await expect(importDeck([], cards(1))).rejects.toThrow('nome');
+  });
+
+  it('um deck sem grupo (caminho de um só nome) fica solto', async () => {
+    const r = await importDeck(['Solto'], cards(2));
+    expect(r.groupId).toBeUndefined();
+    expect(await db.groups.count()).toBe(0);
   });
 });
 

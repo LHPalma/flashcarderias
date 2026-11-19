@@ -157,6 +157,22 @@ export async function addCards(deckId: number, parsed: ParsedCard[]): Promise<nu
   return rows.length;
 }
 
+/**
+ * Importa um deck inteiro de uma vez: cria os grupos do caminho, o deck e todas as fichas numa só
+ * transação. Ou entra tudo, ou nada. Antes, o deck aparecia primeiro e as fichas depois: se o app
+ * fosse fechado no meio de um arquivo grande, sobrava um deck vazio.
+ * `path` é o caminho completo ("Livros", "Psicologia", "Meu Livro"): os grupos e, por último, o deck.
+ */
+export async function importDeck(path: string[], parsed: ParsedCard[]): Promise<{ deckId: number; groupId?: number; added: number }> {
+  if (path.length === 0) throw new Error('O deck precisa de um nome.');
+  return db.transaction('rw', db.groups, db.decks, db.cards, async () => {
+    const groupId = await ensureGroupPath(path.slice(0, -1));
+    const deckId = await createDeck(path[path.length - 1], groupId);
+    const added = await addCards(deckId, parsed);
+    return { deckId, groupId, added };
+  });
+}
+
 /* ---------- fila de estudo ---------- */
 
 /** Quantos cartões novos já foram iniciados hoje (para respeitar o limite diário). */
