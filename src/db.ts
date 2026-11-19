@@ -2,6 +2,7 @@ import Dexie, { type EntityTable } from 'dexie';
 import { type Grade, type LearningMode, type SrsFields, endOfDay, isDue, newSrsFields, schedule, startOfDay } from './srs';
 import type { ParsedCard } from './anki';
 import { descendantIds } from './groups';
+import { DAY, SNOOZE_DAYS, type BackupFacts, type BackupState } from './backup';
 
 export interface Deck {
   id: number;
@@ -251,6 +252,29 @@ export function countCards(cards: Card[], newBudget: number, now: number): DeckC
     } else if (c.state === 'review' && c.due <= endOfDay(now)) review++;
   }
   return { total: cards.length, fresh: Math.min(fresh, Math.max(0, newBudget)), learning, review, waiting, nextDue };
+}
+
+/* ---------- lembrete de backup ---------- */
+
+export async function getBackupState(): Promise<BackupState> {
+  return ((await db.meta.get('backup'))?.value as BackupState | undefined) ?? {};
+}
+
+/** Registra que um backup acabou de ser feito (ou restaurado: nesse caso os dados são iguais ao arquivo). */
+export async function markBackup(now = Date.now()): Promise<void> {
+  await db.meta.put({ key: 'backup', value: { lastAt: now } satisfies BackupState });
+}
+
+/** "Depois": não lembrar por alguns dias. */
+export async function snoozeBackup(now = Date.now()): Promise<void> {
+  const state = await getBackupState();
+  await db.meta.put({ key: 'backup', value: { ...state, snoozeUntil: now + SNOOZE_DAYS * DAY } satisfies BackupState });
+}
+
+export async function getBackupFacts(state: BackupState): Promise<BackupFacts> {
+  const first = await db.reviews.orderBy('ts').first();
+  const since = state.lastAt === undefined ? 0 : await db.reviews.where('ts').above(state.lastAt).count();
+  return { firstReviewAt: first?.ts, reviewsSinceLast: since };
 }
 
 /* ---------- backup ---------- */

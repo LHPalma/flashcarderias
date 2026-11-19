@@ -1,9 +1,11 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Page } from '../components/Page';
 import { Icon } from '../components/Icon';
 import { Seg } from '../components/Seg';
+import { BackupBanner } from '../components/BackupBanner';
+import { requestPersistence } from '../storage';
 import { EditGroupDialog, NewDeckDialog, NewGroupDialog } from '../components/GroupDialogs';
 import { ICON_KEY, ICON_KEY_LINE, Label, Panel, keyCls } from '../components/ui';
 import { readText } from '../components/files';
@@ -72,6 +74,12 @@ export function DecksPage() {
   );
   const empty = data && groups.length === 0 && decks.length === 0;
 
+  // Só pede proteção do armazenamento quando já existe algo a proteger (no Firefox isso abre uma pergunta).
+  const hasData = decks.length > 0;
+  useEffect(() => {
+    if (hasData) void requestPersistence();
+  }, [hasData]);
+
   return (
     <Page
       title="Meus decks"
@@ -100,6 +108,8 @@ export function DecksPage() {
           }}
         />
       </div>
+
+      <BackupBanner tick={tick} />
 
       {empty && (
         <p className="py-6 text-center uppercase text-muted">

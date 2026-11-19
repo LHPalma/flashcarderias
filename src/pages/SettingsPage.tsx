@@ -1,11 +1,22 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { Page } from '../components/Page';
 import { Seg } from '../components/Seg';
-import { download, readText } from '../components/files';
+import { readText } from '../components/files';
+import { downloadBackup } from '../components/backupFile';
 import { Box, HINT, Label, Panel, keyCls } from '../components/ui';
-import { exportBackup, importBackup, type Backup } from '../db';
+import { ago } from '../backup';
+import { getBackupState, importBackup, markBackup, type Backup } from '../db';
 import { usePwaInstall, useSettings } from '../hooks';
+import { formatBytes, persistenceState, requestPersistence, storageUsage, type Persistence } from '../storage';
 import { THEMES } from '../theme';
+
+const PERSISTENCE_TEXT: Record<Persistence, string> = {
+  persistent: 'Armazenamento protegido: o navegador não apaga os dados quando faltar espaço.',
+  'best-effort':
+    'Armazenamento padrão: o navegador pode apagar os dados se faltar espaço ou se o app ficar muito tempo sem uso. Instalar o app e fazer backup protege.',
+  unsupported: 'Este navegador não informa se os dados estão protegidos. Faça backup de vez em quando.',
+};
 
 const MODES: { id: 'fast' | 'strict'; label: string }[] = [
   { id: 'fast', label: 'RÁPIDO' },
@@ -33,12 +44,22 @@ export function SettingsPage() {
   const install = usePwaInstall();
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState('');
+  const backup = useLiveQuery(getBackupState, []);
+  const [persistence, setPersistence] = useState<Persistence | null>(null);
+  const [asked, setAsked] = useState(false);
+  const [usage, setUsage] = useState<{ usage?: number; quota?: number }>({});
+
+  useEffect(() => {
+    void persistenceState().then(setPersistence);
+    void storageUsage().then(setUsage);
+  }, []);
 
   async function restore(file: File) {
     try {
       const data = JSON.parse(await readText(file)) as Backup;
       if (!window.confirm('Restaurar este backup substitui todos os decks e o progresso atuais. Continuar?')) return;
       await importBackup(data);
+      await markBackup(); // os dados agora são iguais ao arquivo restaurado
       await update({}); // reaplica o tema do backup
       setStatus('Backup restaurado.');
     } catch (e) {
@@ -98,12 +119,32 @@ export function SettingsPage() {
 
       <Box className="gap-2.5">
         <Label as="h2">Seus dados</Label>
-        <p className={HINT}>Tudo fica salvo neste aparelho. Faça backup para levar a outro celular.</p>
+        <p className={HINT}>Tudo fica salvo neste aparelho. Faça backup para levar a outro celular ou para se proteger de uma limpeza do navegador.</p>
+        <p className={HINT}>Último backup: <span className="uppercase text-ink">{ago(backup?.lastAt, Date.now())}</span></p>
         <div className="flex gap-2">
-          <button type="button" className={keyCls('outline', 'flex-1')} onClick={async () => download(`flashcards-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(await exportBackup()), 'application/json')}>Exportar</button>
+          <button type="button" className={keyCls('outline', 'flex-1')} onClick={() => void downloadBackup()}>Exportar</button>
           <button type="button" className={keyCls('outline', 'flex-1')} onClick={() => fileRef.current?.click()}>Restaurar</button>
           <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void restore(f); e.target.value = ''; }} />
         </div>
+        {persistence && (
+          <p className={HINT} data-testid="persistence">
+            {PERSISTENCE_TEXT[persistence]}
+            {persistence === 'best-effort' && asked ? ' O navegador não concedeu agora.' : ''}
+            {usage.usage !== undefined ? ` Em uso: ${formatBytes(usage.usage)}.` : ''}
+          </p>
+        )}
+        {persistence === 'best-effort' && (
+          <button
+            type="button"
+            className={keyCls('outline')}
+            onClick={async () => {
+              setPersistence(await requestPersistence());
+              setAsked(true);
+            }}
+          >
+            Proteger meus dados
+          </button>
+        )}
       </Box>
 
       <div className="mt-auto" />

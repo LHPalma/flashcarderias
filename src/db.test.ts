@@ -11,12 +11,16 @@ import {
   deleteGroup,
   ensureGroupPath,
   exportBackup,
+  getBackupFacts,
+  getBackupState,
   gradeCard,
   importBackup,
   importDeck,
+  markBackup,
   moveDeck,
   moveGroup,
   saveSettings,
+  snoozeBackup,
   DEFAULT_SETTINGS,
 } from './db';
 import { startOfDay } from './srs';
@@ -80,6 +84,37 @@ describe('grupos', () => {
     expect((await db.decks.get(deck))?.groupId).toBe(g);
     await moveDeck(deck, undefined);
     expect((await db.decks.get(deck))?.groupId).toBeUndefined();
+  });
+});
+
+describe('estado do lembrete de backup', () => {
+  const DAY = 86_400_000;
+  const rev = (ts: number) => db.reviews.add({ cardId: 1, deckId: 1, ts, grade: 3, wasNew: false } as never);
+
+  it('começa vazio; markBackup grava a data', async () => {
+    expect(await getBackupState()).toEqual({});
+    await markBackup(1234);
+    expect(await getBackupState()).toEqual({ lastAt: 1234 });
+  });
+
+  it('snoozeBackup adia por 3 dias e preserva a data do último backup', async () => {
+    await markBackup(1000);
+    await snoozeBackup(5000);
+    expect(await getBackupState()).toEqual({ lastAt: 1000, snoozeUntil: 5000 + 3 * DAY });
+  });
+
+  it('fazer um backup limpa o adiamento', async () => {
+    await snoozeBackup(5000);
+    await markBackup(9000);
+    expect(await getBackupState()).toEqual({ lastAt: 9000 });
+  });
+
+  it('getBackupFacts acha a primeira revisão e conta as feitas depois do último backup', async () => {
+    expect(await getBackupFacts({})).toEqual({ firstReviewAt: undefined, reviewsSinceLast: 0 });
+    for (const t of [100, 200, 300, 400]) await rev(t);
+    expect(await getBackupFacts({})).toEqual({ firstReviewAt: 100, reviewsSinceLast: 0 }); // nunca fez backup: o que importa é a data da primeira
+    expect(await getBackupFacts({ lastAt: 250 })).toEqual({ firstReviewAt: 100, reviewsSinceLast: 2 });
+    expect(await getBackupFacts({ lastAt: 400 })).toEqual({ firstReviewAt: 100, reviewsSinceLast: 0 });
   });
 });
 
