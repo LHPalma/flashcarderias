@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   addCards,
   buildQueue,
+  countCards,
   createDeck,
   createGroup,
   db,
@@ -105,6 +106,26 @@ describe('fila de estudo por escopo', () => {
     for (let i = 0; i < 4; i++) await db.reviews.add({ cardId: i, deckId: a, ts: now, grade: 3, wasNew: true } as never);
     expect(await buildQueue([a], now)).toHaveLength(6);
     expect(await buildQueue([a, b], now)).toHaveLength(16); // 6 do A + 10 do B
+  });
+});
+
+describe('countCards: fichas em espera', () => {
+  const NOW = Date.UTC(2026, 10, 19, 15, 0, 0);
+  const card = (state: 'new' | 'learning' | 'review', due: number) => ({ id: 1, deckId: 1, front: 'a', back: 'b', tags: [], createdAt: 0, state, ease: 2.5, interval: 1, reps: 0, lapses: 0, due }) as never;
+
+  it('separa as em aprendizado que já venceram das que ainda esperam, e guarda a primeira a voltar', () => {
+    const c = countCards(
+      [card('learning', NOW - 1), card('learning', NOW + 5 * 60_000), card('learning', NOW + 60_000), card('new', 0)],
+      10,
+      NOW,
+    );
+    expect(c).toMatchObject({ learning: 1, waiting: 2, fresh: 1, nextDue: NOW + 60_000 });
+  });
+
+  it('sem nada esperando, waiting é 0 e nextDue não existe', () => {
+    const c = countCards([card('review', NOW - 1)], 10, NOW);
+    expect(c.waiting).toBe(0);
+    expect(c.nextDue).toBeUndefined();
   });
 });
 

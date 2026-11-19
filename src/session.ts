@@ -1,5 +1,5 @@
 // Qual ficha mostrar agora numa sessão de estudo. Lógica pura, sem React nem banco.
-import type { CardState } from './srs';
+import { formatDue, type CardState } from './srs';
 
 export type Next =
   | { kind: 'card'; id: number } // há uma ficha para mostrar
@@ -30,6 +30,12 @@ export function pickNext(queue: number[], cards: Map<number, Pickable>, now: num
   const byDue = [...live].sort((a, b) => cards.get(a)!.due - cards.get(b)!.due);
   if (ahead) return { kind: 'card', id: byDue[0] };
   return { kind: 'wait', nextDue: cards.get(byDue[0])!.due, waiting: live.length };
+}
+
+/** Aviso da tela inicial: fichas que você errou e ainda esperam o prazo para voltar. */
+export function waitingText(waiting: number, nextDue: number, now: number): string {
+  const when = formatDue(nextDue, now);
+  return waiting === 1 ? `1 ficha volta em ${when}` : `${waiting} fichas em espera · a próxima volta em ${when}`;
 }
 
 /** "00:42" para a contagem regressiva. */

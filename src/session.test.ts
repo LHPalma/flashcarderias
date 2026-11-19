@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCountdown, pickNext } from './session';
+import { formatCountdown, pickNext, waitingText } from './session';
 import type { CardState } from './srs';
 
 const NOW = 1_000_000;
@@ -47,6 +47,15 @@ describe('pickNext', () => {
   it('ignora ids da fila que não têm ficha carregada', () => {
     expect(pickNext([9], cards(), NOW)).toEqual({ kind: 'done' });
     expect(pickNext([9, 1], cards([1, 'new', 0]), NOW)).toEqual({ kind: 'card', id: 1 });
+  });
+});
+
+describe('waitingText', () => {
+  it('uma ficha: diz quando ela volta', () => {
+    expect(waitingText(1, NOW + 4 * MIN, NOW)).toBe('1 ficha volta em 4 min');
+  });
+  it('várias: diz quantas esperam e quando volta a primeira', () => {
+    expect(waitingText(3, NOW + MIN, NOW)).toBe('3 fichas em espera · a próxima volta em 1 min');
   });
 });
 

@@ -11,6 +11,7 @@ import { parseAnki } from '../anki';
 import { addCards, countCards, createDeck, db, ensureGroupPath, getSettings, newStudiedToday, type Deck, type DeckCounts, type Group } from '../db';
 import { buildTree, subtreeDeckIds, type GroupNode } from '../groups';
 import { useCollapsed, useTick } from '../hooks';
+import { waitingText } from '../session';
 
 type CountsByDeck = Map<number, DeckCounts>;
 const todo = (c?: DeckCounts) => (c ? c.fresh + c.learning + c.review : 0);
@@ -57,6 +58,15 @@ export function DecksPage() {
   const counts = data?.counts ?? new Map<number, DeckCounts>();
   const tree = buildTree(groups, decks);
   const todayTotal = decks.reduce((s, d) => s + todo(counts.get(d.id)), 0);
+  // Fichas que você errou e ainda esperam o prazo, somando todos os decks.
+  const allWait = decks.reduce<{ waiting: number; nextDue?: number }>(
+    (acc, d) => {
+      const c = counts.get(d.id);
+      if (!c || c.waiting === 0 || c.nextDue === undefined) return acc;
+      return { waiting: acc.waiting + c.waiting, nextDue: acc.nextDue === undefined ? c.nextDue : Math.min(acc.nextDue, c.nextDue) };
+    },
+    { waiting: 0 },
+  );
   const empty = data && groups.length === 0 && decks.length === 0;
 
   return (
@@ -107,6 +117,11 @@ export function DecksPage() {
       {todayTotal > 0 && (
         <Link className={keyCls('bar')} to="/study/all">▶ Estudar tudo · {String(todayTotal).padStart(3, '0')} hoje</Link>
       )}
+      {todayTotal === 0 && allWait.waiting > 0 && allWait.nextDue !== undefined && (
+        <p className="m-0 text-center text-[13px] uppercase tracking-[0.08em] text-muted" role="status">
+          ■ {waitingText(allWait.waiting, allWait.nextDue, Date.now())}
+        </p>
+      )}
 
       <NewDeckDialog open={newDeck.open} groupId={newDeck.groupId} groups={groups} onClose={() => setNewDeck({ open: false })} />
       <NewGroupDialog open={newGroup.open} parentId={newGroup.parentId} groups={groups} onClose={() => setNewGroup({ open: false })} />
@@ -140,6 +155,7 @@ function GroupBlock({
   const open = !collapsed.has(group.id);
   const ids = subtreeDeckIds(node);
   const due = ids.reduce((s, id) => s + todo(counts.get(id)), 0);
+  const waiting = ids.reduce((s, id) => s + (counts.get(id)?.waiting ?? 0), 0);
   const empty = node.children.length === 0 && node.decks.length === 0;
 
   return (
@@ -155,7 +171,7 @@ function GroupBlock({
           <span className="flex min-w-0 flex-col">
             <span className="text-[17px] uppercase tracking-[0.06em] break-words">{group.name}</span>
             <span className="text-[12px] uppercase tracking-[0.08em] text-muted">
-              {ids.length} {ids.length === 1 ? 'deck' : 'decks'}{due > 0 ? ` · ${String(due).padStart(3, '0')} hoje` : ''}
+              {ids.length} {ids.length === 1 ? 'deck' : 'decks'}{due > 0 ? ` · ${String(due).padStart(3, '0')} hoje` : ''}{waiting > 0 ? ` · ${waiting} em espera` : ''}
             </span>
           </span>
         </button>
@@ -184,8 +200,9 @@ function GroupBlock({
 
 /** Painel escuro de um deck, com as contagens do dia. */
 function DeckPanel({ deck, counts }: { deck: Deck; counts?: DeckCounts }) {
-  const c = counts ?? { total: 0, fresh: 0, learning: 0, review: 0 };
+  const c = counts ?? { total: 0, fresh: 0, learning: 0, review: 0, waiting: 0 };
   const work = todo(c);
+  const wait = c.waiting > 0 && c.nextDue !== undefined ? waitingText(c.waiting, c.nextDue, Date.now()) : '';
   return (
     <Panel>
       <div className="flex items-baseline justify-between gap-2">
@@ -203,12 +220,13 @@ function DeckPanel({ deck, counts }: { deck: Deck; counts?: DeckCounts }) {
             <Link className={keyCls('lit')} to={`/study/${deck.id}`}>▶ Estudar</Link>
             <Link className={keyCls('litOutline')} to={`/deck/${deck.id}`}>Fichas</Link>
           </div>
+          {wait && <Label tone="panel">{wait}</Label>}
         </>
       ) : (
         <div className="flex min-h-11 items-center justify-between gap-3">
           <Seg value={0} digits={3} onPanel />
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <Label tone="panel">{c.total === 0 ? 'Deck vazio' : 'Em dia hoje ■'}</Label>
+            <Label tone="panel">{wait || (c.total === 0 ? 'Deck vazio' : 'Em dia hoje ■')}</Label>
             <Link className={keyCls('litOutline')} to={`/deck/${deck.id}`}>Fichas</Link>
           </div>
         </div>

@@ -12,6 +12,7 @@ import { parseAnki, toAnki } from '../anki';
 import { addCards, countCards, db, deleteDeck, getSettings, moveDeck, newStudiedToday, type Card } from '../db';
 import { groupPath } from '../groups';
 import { endOfDay, formatDue } from '../srs';
+import { waitingText } from '../session';
 import { stageBuckets } from '../stats';
 import { useTick } from '../hooks';
 
@@ -121,7 +122,9 @@ export function DeckPage() {
         {toStudy > 0 ? (
           <Link className={keyCls('solid', 'flex-1')} to={`/study/${id}`}>▶ Estudar · {toStudy}</Link>
         ) : (
-          <span className={keyCls('solid', 'flex-1')} aria-disabled="true">Nada para hoje ■</span>
+          <span className={keyCls('solid', 'flex-1', 'compact')} aria-disabled="true">
+            {counts?.waiting && counts.nextDue !== undefined ? waitingText(counts.waiting, counts.nextDue, now) : 'Nada para hoje ■'}
+          </span>
         )}
         <button type="button" className={keyCls('outline', 'flex-1')} onClick={() => openEditor(null)}>[+] Nova ficha</button>
       </div>

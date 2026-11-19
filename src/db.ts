@@ -212,20 +212,29 @@ export async function gradeCard(cardId: number, grade: Grade, now: number): Prom
 export interface DeckCounts {
   total: number;
   fresh: number; // novos disponíveis hoje (respeitando o limite)
-  learning: number;
+  learning: number; // em aprendizado e já no prazo
   review: number;
+  waiting: number; // em aprendizado, mas esperando o prazo (por exemplo, errou há 30 s)
+  nextDue?: number; // quando volta a primeira das que estão esperando
 }
 
 export function countCards(cards: Card[], newBudget: number, now: number): DeckCounts {
   let learning = 0;
   let review = 0;
   let fresh = 0;
+  let waiting = 0;
+  let nextDue: number | undefined;
   for (const c of cards) {
     if (c.state === 'new') fresh++;
-    else if (c.state === 'learning' && c.due <= now) learning++;
-    else if (c.state === 'review' && c.due <= endOfDay(now)) review++;
+    else if (c.state === 'learning') {
+      if (c.due <= now) learning++;
+      else {
+        waiting++;
+        nextDue = nextDue === undefined ? c.due : Math.min(nextDue, c.due);
+      }
+    } else if (c.state === 'review' && c.due <= endOfDay(now)) review++;
   }
-  return { total: cards.length, fresh: Math.min(fresh, Math.max(0, newBudget)), learning, review };
+  return { total: cards.length, fresh: Math.min(fresh, Math.max(0, newBudget)), learning, review, waiting, nextDue };
 }
 
 /* ---------- backup ---------- */
