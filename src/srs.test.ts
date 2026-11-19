@@ -43,7 +43,20 @@ describe('cartão em revisão', () => {
     expect(schedule(review({ ease: 1.35 }), 1, NOW).ease).toBe(1.3);
   });
   it('o intervalo sempre avança pelo menos 1 dia', () => {
-    expect(schedule(review({ interval: 1, ease: 1.3 }), 3, NOW).interval).toBe(2);
+    expect(schedule(review({ interval: 1, ease: 1.3 }), 2, NOW).interval).toBe(2);
+  });
+  it('Difícil < Bom < Fácil em qualquer intervalo e facilidade (antes Bom e Fácil empatavam em 1 dia)', () => {
+    for (const ease of [1.3, 2.0, 2.5, 3.0]) {
+      for (let interval = 1; interval <= 400; interval++) {
+        const at = (g: 2 | 3 | 4) => schedule(review({ interval, ease }), g, NOW).interval;
+        expect(at(2)).toBeLessThan(at(3));
+        expect(at(3)).toBeLessThan(at(4));
+      }
+    }
+  });
+  it('na primeira revisão (1 dia): Difícil 2 d, Bom 3 d, Fácil 4 d', () => {
+    const at = (g: 2 | 3 | 4) => schedule(review({ interval: 1 }), g, NOW).interval;
+    expect([at(2), at(3), at(4)]).toEqual([2, 3, 4]);
   });
   it('depois de um lapso, Bom volta com o intervalo reduzido', () => {
     const lapsed = schedule(review(), 1, NOW);

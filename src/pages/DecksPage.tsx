@@ -10,7 +10,7 @@ import { readText } from '../components/files';
 import { parseAnki } from '../anki';
 import { addCards, countCards, createDeck, db, ensureGroupPath, getSettings, newStudiedToday, type Deck, type DeckCounts, type Group } from '../db';
 import { buildTree, subtreeDeckIds, type GroupNode } from '../groups';
-import { useCollapsed } from '../hooks';
+import { useCollapsed, useTick } from '../hooks';
 
 type CountsByDeck = Map<number, DeckCounts>;
 const todo = (c?: DeckCounts) => (c ? c.fresh + c.learning + c.review : 0);
@@ -21,6 +21,7 @@ export function DecksPage() {
   const [newGroup, setNewGroup] = useState<{ open: boolean; parentId?: number }>({ open: false });
   const [editing, setEditing] = useState<Group | null>(null);
   const [collapsed, toggle] = useCollapsed();
+  const tick = useTick(); // recontar de tempos em tempos: fichas em aprendizado vencem com o passar do tempo
   const fileRef = useRef<HTMLInputElement>(null);
 
   const data = useLiveQuery(async () => {
@@ -34,7 +35,7 @@ export function DecksPage() {
       }),
     );
     return { groups, decks, counts };
-  }, []);
+  }, [tick]);
 
   async function importFile(file: File) {
     const parsed = parseAnki(await readText(file));

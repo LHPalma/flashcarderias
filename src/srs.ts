@@ -67,15 +67,20 @@ export function schedule(c: SrsFields, grade: Grade, now: number): SrsFields {
       due: now + LAPSE_STEP,
     };
   }
+  // Os prazos sempre crescem na ordem Difícil < Bom < Fácil. Sem isso, com intervalos curtos
+  // (1 dia, por exemplo) o arredondamento fazia Bom e Fácil mostrarem o mesmo número.
+  const hard = Math.max(c.interval + 1, Math.round(c.interval * 1.2));
+  const good = Math.max(hard + 1, Math.round(c.interval * c.ease));
+  const easy = Math.max(good + 1, Math.round(c.interval * c.ease * 1.3));
   let interval: number;
   let ease = c.ease;
   if (grade === 2) {
-    interval = Math.max(c.interval + 1, Math.round(c.interval * 1.2));
+    interval = hard;
     ease = Math.max(MIN_EASE, ease - 0.15);
   } else if (grade === 3) {
-    interval = Math.max(c.interval + 1, Math.round(c.interval * ease));
+    interval = good;
   } else {
-    interval = Math.max(c.interval + 1, Math.round(c.interval * ease * 1.3));
+    interval = easy;
     ease += 0.15;
   }
   return { ...c, state: 'review', ease, interval, due: addDays(now, interval) };

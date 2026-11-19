@@ -13,6 +13,7 @@ import { addCards, countCards, db, deleteDeck, getSettings, moveDeck, newStudied
 import { groupPath } from '../groups';
 import { endOfDay, formatDue } from '../srs';
 import { stageBuckets } from '../stats';
+import { useTick } from '../hooks';
 
 const CHIP =
   'min-h-9 rounded-lg leading-[normal] border-2 border-panel bg-transparent px-2.5 py-1.5 text-[12px] uppercase tracking-[0.06em] text-ink aria-pressed:bg-panel aria-pressed:text-pt';
@@ -35,6 +36,7 @@ export function DeckPage() {
   const [rename, setRename] = useState('');
   const [status, setStatus] = useState('');
 
+  const tick = useTick(); // fichas em aprendizado vencem com o tempo: recontar de vez em quando
   const deck = useLiveQuery(() => db.decks.get(id), [id]);
   const groups = useLiveQuery(() => db.groups.toArray(), []) ?? [];
   const cards = useLiveQuery(() => db.cards.where('deckId').equals(id).sortBy('id'), [id]);
@@ -42,7 +44,7 @@ export function DeckPage() {
     const now = Date.now();
     const [list, settings, done] = await Promise.all([db.cards.where('deckId').equals(id).toArray(), getSettings(), newStudiedToday(now, id)]);
     return countCards(list, settings.newPerDay - done, now);
-  }, [id]);
+  }, [id, tick]);
 
   const all = cards ?? [];
   const now = Date.now();

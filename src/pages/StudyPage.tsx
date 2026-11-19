@@ -3,9 +3,11 @@ import { Link, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Page } from '../components/Page';
 import { Icon } from '../components/Icon';
+import { Seg } from '../components/Seg';
 import { ICON_KEY, Label, Panel, keyCls } from '../components/ui';
 import { buildQueue, db, gradeCard, type Card } from '../db';
 import { buildTree, findNode, subtreeDeckIds } from '../groups';
+import { formatCountdown, pickNext, type Next } from '../session';
 import { GRADES, GRADE_LABEL, MIN, previewLabels, type Grade } from '../srs';
 
 interface Session {
@@ -37,6 +39,8 @@ export function StudyPage() {
   const group = useLiveQuery(() => (groupId === undefined ? undefined : db.groups.get(groupId)), [groupId]);
   const [session, setSession] = useState<Session | null>(null);
   const [flipped, setFlipped] = useState(false);
+  const [ahead, setAhead] = useState(false); // "Estudar agora": adianta uma ficha que ainda estava esperando o prazo
+  const [, setTick] = useState(0); // só para redesenhar a contagem regressiva a cada segundo
   const busy = useRef(false);
 
   useEffect(() => {
@@ -60,8 +64,18 @@ export function StudyPage() {
     return () => { alive = false; };
   }, [deckId, groupId]);
 
-  const current = session && session.queue.length > 0 ? session.cards.get(session.queue[0]) ?? null : null;
+  // Qual ficha vem agora: uma ficha que você errou (1 min) ou achou difícil (6 min) só volta quando esse
+  // prazo passa. Se só restarem essas, mostra a espera em vez de repetir a ficha na hora.
+  const next: Next | null = session ? pickNext(session.queue, session.cards, Date.now(), ahead) : null;
+  const current = session && next?.kind === 'card' ? session.cards.get(next.id) ?? null : null;
   const labels = useMemo(() => (current ? previewLabels(current, Date.now()) : null), [current, flipped]);
+
+  const waiting = next?.kind === 'wait';
+  useEffect(() => {
+    if (!waiting) return;
+    const t = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [waiting]);
 
   async function grade(g: Grade) {
     if (!session || !current || busy.current) return;
@@ -72,7 +86,7 @@ export function StudyPage() {
       setSession((s) => {
         if (!s) return s;
         const cards = new Map(s.cards).set(updated.id, updated);
-        const rest = s.queue.slice(1);
+        const rest = s.queue.filter((x) => x !== updated.id);
         // Fichas ainda em aprendizado e com prazo curto voltam ao fim da fila desta sessão.
         const again = updated.state === 'learning' && updated.due - now < 20 * MIN;
         const queue = again ? [...rest, updated.id] : rest;
@@ -86,6 +100,7 @@ export function StudyPage() {
         };
       });
       setFlipped(false);
+      setAhead(false);
     } finally {
       busy.current = false;
     }
@@ -118,6 +133,30 @@ export function StudyPage() {
       <Shell title={title} leave={leave}>
         <p className="py-6 text-center uppercase text-muted">Nada para estudar agora ■</p>
         <Link className={keyCls('bar')} to="/">Voltar aos decks</Link>
+      </Shell>
+    );
+  }
+
+  if (next?.kind === 'wait') {
+    const { mm, ss } = formatCountdown(next.nextDue - Date.now());
+    const n = next.waiting;
+    return (
+      <Shell title={title} leave={leave}>
+        <Panel className="gap-3.5">
+          <Label tone="panel">Aguardando</Label>
+          <div className="flex items-center gap-1">
+            <Seg value={mm} size="big" onPanel />
+            <span aria-hidden="true" className="font-lcd text-[72px] leading-none">:</span>
+            <Seg value={ss} size="big" onPanel />
+          </div>
+          <p className="m-0 text-[14px] text-pm">
+            {n === 1 ? 'Falta 1 ficha' : `Faltam ${n} fichas`} em aprendizado. Elas voltam quando o prazo do botão
+            (1 min, 6 min…) terminar. O que falta fica guardado.
+          </p>
+        </Panel>
+        <div className="mt-auto" />
+        <button type="button" className={keyCls('solid')} onClick={() => setAhead(true)}>▶ Estudar agora</button>
+        <Link className={keyCls('outline')} to={back}>Terminar por hoje</Link>
       </Shell>
     );
   }

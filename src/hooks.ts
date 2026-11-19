@@ -14,6 +14,19 @@ export function useSettings(): [Settings, (patch: Partial<Settings>) => Promise<
   return [settings, update];
 }
 
+/**
+ * Número que muda a cada `ms`. Serve para refazer contagens que dependem da hora, como as fichas
+ * em aprendizado que vencem com o tempo (sem isso, a tela só se atualizava ao recarregar).
+ */
+export function useTick(ms = 20_000): number {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setN((x) => x + 1), ms);
+    return () => clearInterval(t);
+  }, [ms]);
+  return n;
+}
+
 const COLLAPSED_KEY = 'fc.collapsed';
 
 /** Quais grupos estão fechados na tela inicial. Por padrão, tudo aberto; a escolha fica salva no aparelho. */
