@@ -42,7 +42,7 @@
     --back: #ffd98a;
   }
   [data-theme='sage'] {
-    --bg: #98ab8a; --ink: #1a2118; --muted: #2a3626; --panel: #10150f; --pt: #a9e38b; --pm: #8fc47a; --back: #b9e79d;
+    --bg: #98ab8a; --ink: #1a2118; --muted: #232e1f; --panel: #10150f; --pt: #a9e38b; --pm: #8fc47a; --back: #b9e79d;
   }
   [data-theme='blue'] {
     --bg: #8fb7d9; --ink: #0a1a2c; --muted: #16324f; --panel: #07111d; --pt: #7fd4ff; --pm: #5fb0e0; --back: #c4e6fb;
@@ -57,7 +57,8 @@
   }
   body {
     background-color: var(--bg);
-    background-image: radial-gradient(color-mix(in srgb, var(--ink) 20%, transparent) 1.3px, transparent 1.7px);
+    /* 14%: com mais que isso, o texto secundário perde contraste quando cai sobre um ponto da trama */
+    background-image: radial-gradient(color-mix(in srgb, var(--ink) 14%, transparent) 1.3px, transparent 1.7px);
     background-size: 12px 12px;
     color: var(--ink);
     font-family: var(--font-mono);

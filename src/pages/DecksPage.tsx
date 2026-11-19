@@ -220,7 +220,7 @@ function DeckPanel({ deck, counts }: { deck: Deck; counts?: DeckCounts }) {
     <Panel>
       <div className="flex items-baseline justify-between gap-2">
         <Link className="text-[17px] uppercase tracking-[0.06em] no-underline break-words" to={`/deck/${deck.id}`}>{deck.name}</Link>
-        <span className="whitespace-nowrap text-[12px] text-pm">{String(c.total).padStart(3, '0')} FICHAS</span>
+        <span className="text-right text-[12px] text-pm">{String(c.total).padStart(3, '0')} FICHAS</span>
       </div>
       {work > 0 ? (
         <>

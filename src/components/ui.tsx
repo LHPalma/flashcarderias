@@ -3,8 +3,10 @@ import type { ElementType, HTMLAttributes, ReactNode } from 'react';
 /** Teclas (botões e links). As variantes "lit" são para usar dentro de um painel escuro. */
 export type KeyVariant = 'solid' | 'outline' | 'bar' | 'lit' | 'litOutline';
 
+// [overflow-wrap:anywhere]: com zoom muito alto (200% num celular) uma palavra longa como "RESTAURAR" quebra em vez de
+// empurrar a página para os lados. Em telas normais nada muda.
 const KEY_BASE =
-  'inline-flex items-center justify-center gap-2 rounded-[10px] border-2 font-mono uppercase leading-[normal] no-underline disabled:cursor-default disabled:opacity-50 aria-disabled:opacity-50';
+  'inline-flex items-center justify-center gap-2 rounded-[10px] border-2 font-mono uppercase leading-[normal] [overflow-wrap:anywhere] no-underline disabled:cursor-default disabled:opacity-50 aria-disabled:opacity-50';
 
 const KEY_COLOR: Record<KeyVariant, string> = {
   solid: 'border-panel bg-panel text-pt',

@@ -7,8 +7,10 @@ import { db } from '../db';
 import { useSettings } from '../hooks';
 import { MONTHS, WEEKDAYS, bestStreak, buildHeatmap, currentStreak, dayKey, tally } from '../stats';
 
-// Intensidade de cada dia (classes completas para o Tailwind encontrar).
-const LEVEL = ['bg-pt/[.12]', 'bg-pt/[.32]', 'bg-pt/[.55]', 'bg-pt/[.78]', 'bg-pt'];
+// Intensidade de cada dia (classes completas para o Tailwind encontrar). O nível 0 ("sem estudo") é quase apagado
+// de propósito; do nível 1 em diante, cada quadrado tem pelo menos 3:1 de contraste contra o painel
+// (veja contrast.test.ts), para quem enxerga pouco ainda distinguir os dias estudados.
+const LEVEL = ['bg-pt/[.12]', 'bg-pt/[.45]', 'bg-pt/[.62]', 'bg-pt/[.8]', 'bg-pt'];
 
 export function ProgressPage() {
   const [settings] = useSettings();

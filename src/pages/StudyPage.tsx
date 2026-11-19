@@ -182,7 +182,9 @@ export function StudyPage() {
           <Label tone="panel">% de acerto em {sum} revisões</Label>
           <div className="flex flex-wrap items-center gap-2">
             {GRADES.map((g) => (
-              <Label key={g} className={GRADE_STYLE[g].text}>{GRADE_LABEL[g]} {t[g]}</Label>
+              // Não usa <Label>: ele já define uma cor, e duas classes de cor na mesma peça brigam (a errada ganhava e o
+              // texto ficava ilegível sobre o painel escuro).
+              <span key={g} className={`text-[11px] uppercase tracking-[0.16em] ${GRADE_STYLE[g].text}`}>{GRADE_LABEL[g]} {t[g]}</span>
             ))}
           </div>
           {session.missed.length > 0 && (

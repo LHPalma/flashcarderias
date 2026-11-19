@@ -71,7 +71,7 @@ export function SettingsPage() {
     <Page title="Ajustes" eyebrow="FLASHCARDS // SETUP" backTo="/" status={status}>
       <Box className="gap-2.5">
         <Label as="h2">Tema da tela</Label>
-        <div className="grid grid-cols-2 gap-2" role="group" aria-label="Tema da tela">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-2" role="group" aria-label="Tema da tela">
           {THEMES.map((t) => (
             <button
               key={t.id}
@@ -93,7 +93,7 @@ export function SettingsPage() {
 
       <Box className="gap-2.5">
         <Label as="h2">Como a ficha nova aprende</Label>
-        <div className="grid grid-cols-2 gap-2" role="group" aria-label="Como a ficha nova aprende">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-2" role="group" aria-label="Como a ficha nova aprende">
           {MODES.map((m) => (
             <button
               key={m.id}

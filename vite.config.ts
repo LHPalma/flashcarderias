@@ -30,5 +30,6 @@ export default defineConfig({
       workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'] },
     }),
   ],
-  test: { environment: 'node' },
+  // O teste de contraste lê styles.css como texto; sem isto o Vitest devolve o CSS vazio.
+  test: { environment: 'node', css: { include: [/styles\.css/] } },
 });
