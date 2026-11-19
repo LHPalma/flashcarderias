@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
-import { type Grade, type SrsFields, endOfDay, isDue, newSrsFields, schedule, startOfDay } from './srs';
+import { type Grade, type LearningMode, type SrsFields, endOfDay, isDue, newSrsFields, schedule, startOfDay } from './srs';
 import type { ParsedCard } from './anki';
 import { descendantIds } from './groups';
 
@@ -66,8 +66,9 @@ export interface Settings {
   newPerDay: number; // fichas novas por dia, por deck
   dailyGoal: number; // meta de revisões por dia
   theme: ThemeId;
+  learningMode: LearningMode; // como uma ficha nova aprende: rápido (um acerto) ou rigoroso (dois passos)
 }
-export const DEFAULT_SETTINGS: Settings = { newPerDay: 10, dailyGoal: 20, theme: 'amber' };
+export const DEFAULT_SETTINGS: Settings = { newPerDay: 10, dailyGoal: 20, theme: 'amber', learningMode: 'fast' };
 
 export async function getSettings(): Promise<Settings> {
   const row = await db.meta.get('settings');
@@ -195,10 +196,11 @@ export async function buildQueue(deckIds: number[] | undefined, now: number): Pr
 
 /** Registra a resposta, atualiza o agendamento e devolve o cartão atualizado. */
 export async function gradeCard(cardId: number, grade: Grade, now: number): Promise<Card> {
+  const { learningMode } = await getSettings();
   return db.transaction('rw', db.cards, db.reviews, async () => {
     const card = await db.cards.get(cardId);
     if (!card) throw new Error('Cartão não encontrado');
-    const next = { ...card, ...schedule(card, grade, now) };
+    const next = { ...card, ...schedule(card, grade, now, learningMode) };
     await db.cards.put(next);
     await db.reviews.add({ cardId, deckId: card.deckId, ts: now, grade, wasNew: card.state === 'new' } as ReviewLog);
     return next;

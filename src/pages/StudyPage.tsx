@@ -7,6 +7,7 @@ import { Seg } from '../components/Seg';
 import { ICON_KEY, Label, Panel, keyCls } from '../components/ui';
 import { buildQueue, db, gradeCard, type Card } from '../db';
 import { buildTree, findNode, subtreeDeckIds } from '../groups';
+import { useSettings } from '../hooks';
 import { formatCountdown, pickNext, type Next } from '../session';
 import { GRADES, GRADE_LABEL, MIN, previewLabels, type Grade } from '../srs';
 
@@ -68,7 +69,9 @@ export function StudyPage() {
   // prazo passa. Se só restarem essas, mostra a espera em vez de repetir a ficha na hora.
   const next: Next | null = session ? pickNext(session.queue, session.cards, Date.now(), ahead) : null;
   const current = session && next?.kind === 'card' ? session.cards.get(next.id) ?? null : null;
-  const labels = useMemo(() => (current ? previewLabels(current, Date.now()) : null), [current, flipped]);
+  const [settings] = useSettings();
+  const mode = settings.learningMode;
+  const labels = useMemo(() => (current ? previewLabels(current, Date.now(), mode) : null), [current, flipped, mode]);
 
   const waiting = next?.kind === 'wait';
   useEffect(() => {

@@ -7,6 +7,11 @@ import { exportBackup, importBackup, type Backup } from '../db';
 import { usePwaInstall, useSettings } from '../hooks';
 import { THEMES } from '../theme';
 
+const MODES: { id: 'fast' | 'strict'; label: string }[] = [
+  { id: 'fast', label: 'RÁPIDO' },
+  { id: 'strict', label: 'RIGOROSO' },
+];
+
 const STEP_KEY =
   'size-[52px] rounded-[10px] border-2 border-pt bg-transparent font-lcd text-[30px] leading-none text-pt disabled:opacity-50';
 
@@ -63,6 +68,28 @@ export function SettingsPage() {
           ))}
         </div>
         <p className={HINT}>As teclas ERREI, DIFÍCIL, BOM e FÁCIL mantêm suas cores em todos os temas.</p>
+      </Box>
+
+      <Box className="gap-2.5">
+        <Label as="h2">Como a ficha nova aprende</Label>
+        <div className="grid grid-cols-2 gap-2" role="group" aria-label="Como a ficha nova aprende">
+          {MODES.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              className="min-h-12 rounded-[10px] border-2 border-panel bg-transparent px-3 font-mono text-[14px] leading-[normal] tracking-[0.08em] text-ink aria-pressed:bg-panel aria-pressed:text-pt"
+              aria-pressed={s.learningMode === m.id}
+              onClick={() => void update({ learningMode: m.id })}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <p className={HINT}>
+          {s.learningMode === 'strict'
+            ? 'Rigoroso: a ficha nova só vai para 1 dia depois de dois acertos. O primeiro Bom a traz de volta em 10 min, e o segundo confirma. Pede mais provas de que você lembrou, e repete mais.'
+            : 'Rápido: um Bom já manda a ficha nova para 1 dia. Sessões mais curtas, com menos repetição.'}
+        </p>
       </Box>
 
       <Stepper label="Novas fichas por dia / deck" value={s.newPerDay} min={0} max={100} step={5} onChange={(v) => void update({ newPerDay: v })} />

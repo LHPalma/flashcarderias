@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MIN, addDays, formatDue, isDue, newSrsFields, schedule, startOfDay, type SrsFields } from './srs';
+import { MIN, addDays, formatDue, isDue, newSrsFields, previewLabels, schedule, startOfDay, type SrsFields } from './srs';
 
 const NOW = new Date(2026, 5, 10, 15, 30).getTime();
 const review = (over: Partial<SrsFields> = {}): SrsFields => ({
@@ -61,6 +61,58 @@ describe('cartão em revisão', () => {
   it('depois de um lapso, Bom volta com o intervalo reduzido', () => {
     const lapsed = schedule(review(), 1, NOW);
     expect(schedule(lapsed, 3, NOW + 10 * MIN)).toMatchObject({ state: 'review', interval: 5 });
+  });
+});
+
+describe('modo rigoroso (ficha nova em dois passos: 1 min e 10 min)', () => {
+  const strict = (c: SrsFields, g: 1 | 2 | 3 | 4, now = NOW) => schedule(c, g, now, 'strict');
+
+  it('primeiro passo: Errei 1 min, Difícil 6 min, Bom vai ao segundo passo (10 min), Fácil gradua', () => {
+    const c = newSrsFields(NOW);
+    expect(strict(c, 1)).toMatchObject({ state: 'learning', step: 0, due: NOW + MIN });
+    expect(strict(c, 2)).toMatchObject({ state: 'learning', due: NOW + 6 * MIN });
+    expect(strict(c, 3)).toMatchObject({ state: 'learning', step: 1, due: NOW + 10 * MIN });
+    expect(strict(c, 4)).toMatchObject({ state: 'review', interval: 4, reps: 1 });
+  });
+
+  it('segundo passo: Bom gradua para 1 dia; Errei volta ao começo; Difícil repete os 10 min', () => {
+    const second = strict(newSrsFields(NOW), 3);
+    expect(strict(second, 3)).toMatchObject({ state: 'review', interval: 1, reps: 1, step: 0 });
+    expect(strict(second, 1)).toMatchObject({ state: 'learning', step: 0, due: NOW + MIN });
+    expect(strict(second, 2)).toMatchObject({ state: 'learning', step: 1, due: NOW + 10 * MIN });
+  });
+
+  it('precisa de dois Bons seguidos; um Errei no meio recomeça a contagem', () => {
+    let c = newSrsFields(NOW);
+    c = strict(c, 3);
+    c = strict(c, 1);
+    c = strict(c, 3);
+    expect(c.state).toBe('learning');
+    c = strict(c, 3);
+    expect(c.state).toBe('review');
+  });
+
+  it('os botões mostram a verdade em cada passo', () => {
+    const c = newSrsFields(NOW);
+    expect(Object.values(previewLabels(c, NOW, 'strict'))).toEqual(['1 min', '6 min', '10 min', '4 d']);
+    expect(Object.values(previewLabels(strict(c, 3), NOW, 'strict'))).toEqual(['1 min', '10 min', '1 d', '4 d']);
+  });
+
+  it('o modo rápido continua igual: um Bom já gradua', () => {
+    expect(schedule(newSrsFields(NOW), 3, NOW)).toMatchObject({ state: 'review', interval: 1 });
+    expect(schedule(newSrsFields(NOW), 3, NOW, 'fast')).toMatchObject({ state: 'review', interval: 1 });
+  });
+
+  it('depois de um lapso (reaprendendo) o passo é um só, mesmo no rigoroso', () => {
+    const lapsed = schedule(review(), 1, NOW, 'strict');
+    expect(lapsed).toMatchObject({ state: 'learning', step: 0 });
+    expect(schedule(lapsed, 3, NOW + 10 * MIN, 'strict')).toMatchObject({ state: 'review', interval: 5 });
+  });
+
+  it('ficha antiga, salva sem o campo step, é tratada como passo 0', () => {
+    const old = { ...newSrsFields(NOW) } as SrsFields;
+    delete old.step;
+    expect(strict(old, 3)).toMatchObject({ state: 'learning', step: 1 });
   });
 });
 

@@ -3,6 +3,14 @@
 export type Grade = 1 | 2 | 3 | 4; // Errei, Difícil, Bom, Fácil
 export type CardState = 'new' | 'learning' | 'review';
 
+/**
+ * Como uma ficha NOVA aprende:
+ * - rápido: um "Bom" já manda a ficha para 1 dia;
+ * - rigoroso: a ficha passa por dois passos (1 min e 10 min), como no Anki, e só vai para dias depois
+ *   de dois acertos. Pede mais provas de que você lembrou, e repete mais.
+ */
+export type LearningMode = 'fast' | 'strict';
+
 export interface SrsFields {
   state: CardState;
   ease: number; // fator de facilidade
@@ -10,6 +18,7 @@ export interface SrsFields {
   reps: number; // vezes que graduou para revisão
   lapses: number;
   due: number; // timestamp em ms
+  step?: number; // passo atual do aprendizado no modo rigoroso (ausente = 0)
 }
 
 export const MIN = 60_000;
@@ -19,8 +28,9 @@ export const GRADES: Grade[] = [1, 2, 3, 4];
 export const GRADE_LABEL: Record<Grade, string> = { 1: 'Errei', 2: 'Difícil', 3: 'Bom', 4: 'Fácil' };
 
 const LEARN_AGAIN = 1 * MIN;
-const LEARN_HARD = 6 * MIN;
+const LEARN_HARD = 6 * MIN; // aproximação do que o Anki faz com os passos de 1 e 10 min
 const LAPSE_STEP = 10 * MIN;
+const STRICT_STEPS = [1 * MIN, 10 * MIN]; // passos de uma ficha nova no modo rigoroso
 
 export function startOfDay(t: number): number {
   const d = new Date(t);
@@ -40,20 +50,30 @@ export function endOfDay(t: number): number {
 }
 
 export function newSrsFields(now: number): SrsFields {
-  return { state: 'new', ease: DEFAULT_EASE, interval: 0, reps: 0, lapses: 0, due: now };
+  return { state: 'new', ease: DEFAULT_EASE, interval: 0, reps: 0, lapses: 0, due: now, step: 0 };
 }
 
 /** Calcula o novo estado do cartão depois de uma resposta. */
-export function schedule(c: SrsFields, grade: Grade, now: number): SrsFields {
+export function schedule(c: SrsFields, grade: Grade, now: number, mode: LearningMode = 'fast'): SrsFields {
   if (c.state !== 'review') {
-    // Cartão novo ou em (re)aprendizado.
-    if (grade === 1) return { ...c, state: 'learning', due: now + LEARN_AGAIN };
-    if (grade === 2) return { ...c, state: 'learning', due: now + LEARN_HARD };
+    // Cartão novo ou em (re)aprendizado. Quem está reaprendendo depois de um lapso tem um passo só.
     const relearning = c.reps > 0;
+    const strict = mode === 'strict' && !relearning;
+    const step = c.step ?? 0;
+
+    if (grade === 1) return { ...c, state: 'learning', step: 0, due: now + LEARN_AGAIN };
+    if (grade === 2) {
+      // Difícil repete o passo em que está (no primeiro, 6 min; no segundo, 10 min).
+      const wait = strict && step > 0 ? STRICT_STEPS[Math.min(step, STRICT_STEPS.length - 1)] : LEARN_HARD;
+      return { ...c, state: 'learning', due: now + wait };
+    }
+    if (grade === 3 && strict && step + 1 < STRICT_STEPS.length) {
+      return { ...c, state: 'learning', step: step + 1, due: now + STRICT_STEPS[step + 1] };
+    }
     const interval = grade === 3
       ? (relearning ? Math.max(1, c.interval) : 1)
       : (relearning ? Math.max(c.interval + 1, Math.round(c.interval * 1.5)) : 4);
-    return { ...c, state: 'review', interval, reps: c.reps + 1, due: addDays(now, interval) };
+    return { ...c, state: 'review', step: 0, interval, reps: c.reps + 1, due: addDays(now, interval) };
   }
 
   // Cartão em revisão.
@@ -61,6 +81,7 @@ export function schedule(c: SrsFields, grade: Grade, now: number): SrsFields {
     return {
       ...c,
       state: 'learning',
+      step: 0,
       ease: Math.max(MIN_EASE, c.ease - 0.2),
       lapses: c.lapses + 1,
       interval: Math.max(1, Math.round(c.interval * 0.5)),
@@ -101,9 +122,9 @@ export function formatDue(due: number, now: number): string {
   return `${String(y).replace('.', ',')} ${y === 1 ? 'ano' : 'anos'}`;
 }
 
-export function previewLabels(c: SrsFields, now: number): Record<Grade, string> {
+export function previewLabels(c: SrsFields, now: number, mode: LearningMode = 'fast'): Record<Grade, string> {
   const out = {} as Record<Grade, string>;
-  for (const g of GRADES) out[g] = formatDue(schedule(c, g, now).due, now);
+  for (const g of GRADES) out[g] = formatDue(schedule(c, g, now, mode).due, now);
   return out;
 }
 

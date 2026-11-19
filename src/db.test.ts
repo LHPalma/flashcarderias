@@ -10,6 +10,7 @@ import {
   deleteGroup,
   ensureGroupPath,
   exportBackup,
+  gradeCard,
   importBackup,
   moveDeck,
   moveGroup,
@@ -104,6 +105,46 @@ describe('fila de estudo por escopo', () => {
     for (let i = 0; i < 4; i++) await db.reviews.add({ cardId: i, deckId: a, ts: now, grade: 3, wasNew: true } as never);
     expect(await buildQueue([a], now)).toHaveLength(6);
     expect(await buildQueue([a, b], now)).toHaveLength(16); // 6 do A + 10 do B
+  });
+});
+
+describe('modo de aprendizado (gravado nas configurações)', () => {
+  const firstCard = async () => {
+    const d = await createDeck('X');
+    await addCards(d, cards(1));
+    return (await db.cards.toArray())[0].id;
+  };
+
+  it('rápido (padrão): um Bom gradua a ficha nova para 1 dia', async () => {
+    const id = await firstCard();
+    const after = await gradeCard(id, 3, Date.now());
+    expect(after).toMatchObject({ state: 'review', interval: 1 });
+  });
+
+  it('rigoroso: o primeiro Bom leva a ficha para o segundo passo; o segundo gradua; fica gravado no banco', async () => {
+    await saveSettings({ ...DEFAULT_SETTINGS, learningMode: 'strict' });
+    const id = await firstCard();
+    const t = Date.now();
+    const one = await gradeCard(id, 3, t);
+    expect(one).toMatchObject({ state: 'learning', step: 1, due: t + 10 * 60_000 });
+    expect((await db.cards.get(id))?.step).toBe(1);
+    const two = await gradeCard(id, 3, t + 10 * 60_000);
+    expect(two).toMatchObject({ state: 'review', interval: 1, step: 0 });
+  });
+
+  it('o modo escolhido entra no backup e volta ao restaurar', async () => {
+    await saveSettings({ ...DEFAULT_SETTINGS, learningMode: 'strict' });
+    const backup = JSON.parse(JSON.stringify(await exportBackup()));
+    await db.delete();
+    await db.open();
+    await importBackup(backup);
+    expect((await db.meta.get('settings'))?.value).toMatchObject({ learningMode: 'strict' });
+  });
+
+  it('configurações antigas, sem o campo, usam o modo rápido', async () => {
+    await db.meta.put({ key: 'settings', value: { newPerDay: 5, dailyGoal: 10, theme: 'blue' } });
+    const id = await firstCard();
+    expect(await gradeCard(id, 3, Date.now())).toMatchObject({ state: 'review' });
   });
 });
 

@@ -16,7 +16,7 @@ npm run preview  # serve o build (o service worker só existe aqui, não no dev)
 
 ## Como funciona
 
-- **Repetição espaçada** (`src/srs.ts`): inspirada no SM-2/Anki. Quatro respostas (Errei, Difícil, Bom, Fácil); cada botão mostra o prazo da próxima revisão, e os prazos sempre crescem nessa ordem. Uma ficha que você errou (1 min) ou achou difícil (6 min) só volta quando esse prazo passa: se só sobrarem essas, a sessão mostra uma contagem regressiva, com "Estudar agora" para adiantar e "Terminar por hoje" (`src/session.ts`).
+- **Repetição espaçada** (`src/srs.ts`): inspirada no SM-2/Anki. Quatro respostas (Errei, Difícil, Bom, Fácil); cada botão mostra o prazo da próxima revisão, e os prazos sempre crescem nessa ordem. Uma ficha que você errou (1 min) ou achou difícil (6 min) só volta quando esse prazo passa: se só sobrarem essas, a sessão mostra uma contagem regressiva, com "Estudar agora" para adiantar e "Terminar por hoje" (`src/session.ts`). Em Ajustes há dois modos para a ficha nova: **rápido** (um Bom já manda para 1 dia, o padrão) e **rigoroso** (dois passos, 1 min e 10 min, e só então 1 dia, como no Anki).
 - **Dados** (`src/db.ts`): IndexedDB via Dexie, tudo no aparelho. Backup e restauração em JSON nos Ajustes.
 - **Grupos de decks** (`src/groups.ts`): grupos aninhados na tela inicial (por exemplo `Livros` → `Psicologia` → deck). Dá para estudar um grupo inteiro, fechar grupos, mover decks e grupos de lugar e apagar um grupo sem perder nada: o conteúdo dele sobe para o grupo de cima.
 - **Anki**: importa e exporta `.txt` com campos separados por tab (`src/anki.ts`). Um `#deck:Livros::Psicologia::Meu Livro` cria os grupos `Livros` e `Psicologia` e põe o deck dentro; ao exportar, o caminho é mantido.
